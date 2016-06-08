@@ -19,6 +19,13 @@ namespace ObjectMapper
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return this;
         }
+
+        public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
+            return this;
+        }
+
     }
 
     public class BuilderNode<TSource, TTarget, TDependencies>
@@ -35,6 +42,12 @@ namespace ObjectMapper
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return this;
         }
+        public BuilderNode<TSource, TTarget, TDependencies> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
+            return this;
+        }
+
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
@@ -55,6 +68,11 @@ namespace ObjectMapper
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
+            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+        }
+        public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
 
@@ -150,12 +168,55 @@ namespace ObjectMapper
             foreach (var entry in _builderEntries)
             {
                 var hasDependency = entry.SourceExpression.Parameters.Count > 1;
-                var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression);
-                var configEntry = new MappingConfigurationEntry(entry.SourceExpression.Parameters[0].Type, entry.TargetExpression.Parameters[0].Type, action, hasDependency ? entry.SourceExpression.Parameters[1].Type : null, _namedResolutions, entry.MapType);
-                configEntries.Add(configEntry);
+
+                if (entry.MapType == MapType.MapProperty)
+                {
+                    var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression);
+                    var configEntry = new MappingConfigurationPropertyEntry(
+                        entry.SourceExpression.Parameters[0].Type, 
+                        entry.TargetExpression.Parameters[0].Type, 
+                        action, 
+                        hasDependency ? entry.SourceExpression.Parameters[1].Type : null, 
+                        _namedResolutions);
+
+                    configEntries.Add(configEntry);
+                }
+                else if (entry.MapType == MapType.MapObject)
+                {
+                    var configEntry = new MappingConfigurationObjectEntry(
+                        entry.SourceExpression.Parameters[0].Type, 
+                        entry.TargetExpression.Parameters[0].Type,
+                        CreateGetterFunction(entry.SourceExpression), 
+                        CreateGetterFunction(entry.TargetExpression), 
+                        CreateObjectSetterMappingAction(entry.TargetExpression),
+                        entry.TargetExpression.ReturnType);
+
+                    configEntries.Add(configEntry);
+                }
             }
             return new MappingConfiguration(configEntries, _namedResolutions);
         }
+
+        private static Delegate CreateObjectSetterMappingAction(LambdaExpression target)
+        {
+            var pTarget = Expression.Parameter(target.Parameters[0].Type, "target");
+            var pObject = Expression.Parameter(((MemberExpression) target.Body).Type, "newObject");
+
+            var targetProperty = target.Body;
+            targetProperty = Replace(targetProperty, target.Parameters[0], pTarget);
+
+            var setter = Expression.Assign(targetProperty, pObject);
+            var lamda =  Expression.Lambda(setter, pTarget, pObject);
+            return lamda.Compile();
+        }
+
+        private static Delegate CreateGetterFunction(LambdaExpression expression)
+        {
+            return expression.Compile();
+        }
+
+
+
 
         private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target)
         {

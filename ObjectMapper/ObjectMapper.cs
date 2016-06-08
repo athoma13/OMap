@@ -23,57 +23,52 @@ namespace ObjectMapper
 
         public void Map(object source, object target)
         {
-            MapInternal(source, target, GetApplicableEntries(source.GetType(), target.GetType(), true), new MappingContext(_resolver));
+            Map(source, target, new MappingContext(_resolver));
         }
 
-        private static void MapInternal(object source, object target, MappingConfigurationEntry[] entries, MappingContext context)
+        private void Map(object source, object target, MappingContext context)
+        {
+            MapInternal(source, target, GetApplicableEntries(source.GetType(), target.GetType(), true), context);
+        }
+
+        private void MapInternal(object source, object target, MappingConfigurationEntry[] entries, MappingContext context)
         {
             foreach (var entry in entries)
             {
-                object dependencyTuple = null;
-                if (entry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, entry);
-
-                if (dependencyTuple != null)
+                var propertyEntry = entry as MappingConfigurationPropertyEntry;
+                if (propertyEntry != null)
                 {
-                    entry.MappingAction.DynamicInvoke(source, target, dependencyTuple);
+                    object dependencyTuple = null;
+                    if (propertyEntry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, propertyEntry);
+
+                    if (dependencyTuple != null)
+                    {
+                        propertyEntry.MappingAction.DynamicInvoke(source, target, dependencyTuple);
+                    }
+                    else
+                    {
+                        propertyEntry.MappingAction.DynamicInvoke(source, target);
+                    }
+                    continue;
                 }
-                else
+
+                var objectEntry = entry as MappingConfigurationObjectEntry;
+                if (objectEntry != null)
                 {
-                    entry.MappingAction.DynamicInvoke(source, target);
+                    var sourceObject = objectEntry.GetSourceProperty.DynamicInvoke(source);
+                    var targetObject = objectEntry.GetTargetProperty.DynamicInvoke(target);
+                    if (targetObject == null)
+                    {
+                        var newObject = Map(sourceObject, objectEntry.TargetPropertyType, context);
+                        objectEntry.SetTargetProperty.DynamicInvoke(target, newObject);
+                    }
+                    else
+                    {
+                        Map(sourceObject, targetObject, context);
+                    }
                 }
             }
         }
-
-        private static object GetDependencyTuple(MappingContext context, MappingConfigurationEntry entry)
-        {
-            if (entry.DependencyTupleType == null) return null;
-
-            var dependencies = new List<object>();
-            //dependencies are passed as a Tuple into the mapping function... find all generic arguments to determine dependencies.
-            foreach (var resolveByType in entry.DependencyTupleType.GenericTypeArguments)
-            {
-                //Check if the type is resolved by name... if so, use the name for resolution. Otherwise, just use type to resolve from IOC
-                string namedResolution;
-                entry.NamedResolutions.TryGetValue(resolveByType, out namedResolution);
-                dependencies.Add(context.ResolveDependency(resolveByType, namedResolution));
-            }
-
-            return Activator.CreateInstance(entry.DependencyTupleType, dependencies.ToArray());
-        }
-
-
-        private MappingConfigurationEntry[] GetApplicableEntries(Type source, Type target, bool explicitTarget)
-        {
-            if (explicitTarget)
-            {
-                return _entries.Where(x => x.Source.IsAssignableFrom(source) && x.Target.IsAssignableFrom(target)).ToArray();
-            }
-            else
-            {
-                return _entries.Where(x => x.Source.IsAssignableFrom(source) && target.IsAssignableFrom(x.Target)).ToArray();
-            }
-        }
-
 
         public TTarget Map<TTarget>(object source)
         {
@@ -105,6 +100,37 @@ namespace ObjectMapper
             MapInternal(source, result1, applicableEntries, context);
             return result1;
         }
+
+        private static object GetDependencyTuple(MappingContext context, MappingConfigurationPropertyEntry entry)
+        {
+            if (entry.DependencyTupleType == null) return null;
+
+            var dependencies = new List<object>();
+            //dependencies are passed as a Tuple into the mapping function... find all generic arguments to determine dependencies.
+            foreach (var resolveByType in entry.DependencyTupleType.GenericTypeArguments)
+            {
+                //Check if the type is resolved by name... if so, use the name for resolution. Otherwise, just use type to resolve from IOC
+                string namedResolution;
+                entry.NamedResolutions.TryGetValue(resolveByType, out namedResolution);
+                dependencies.Add(context.ResolveDependency(resolveByType, namedResolution));
+            }
+
+            return Activator.CreateInstance(entry.DependencyTupleType, dependencies.ToArray());
+        }
+
+
+        private MappingConfigurationEntry[] GetApplicableEntries(Type source, Type target, bool explicitTarget)
+        {
+            if (explicitTarget)
+            {
+                return _entries.Where(x => x.Source.IsAssignableFrom(source) && x.Target.IsAssignableFrom(target)).ToArray();
+            }
+            else
+            {
+                return _entries.Where(x => x.Source.IsAssignableFrom(source) && target.IsAssignableFrom(x.Target)).ToArray();
+            }
+        }
+
 
     }
 

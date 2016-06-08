@@ -12,26 +12,51 @@ namespace ObjectMapper
         MapCollection
     }
 
-
     public class MappingConfigurationEntry
     {
-        public MapType MapType { get; private set; }
         public Type Source { get; private set; }
         public Type Target { get; private set; }
+
+        public MappingConfigurationEntry(Type source, Type target)
+        {
+            Source = source;
+            Target = target;
+        }
+    }
+
+    public class MappingConfigurationPropertyEntry : MappingConfigurationEntry
+    {
         public Delegate MappingAction { get; private set; }
         public Type DependencyTupleType { get; private set; }
         public IDictionary<Type, string> NamedResolutions { get; private set; }
 
-        public MappingConfigurationEntry(Type source, Type target, Delegate mappingAction, Type dependencyTupleType, IDictionary<Type, string> namedResolutions, MapType mapType)
+        public MappingConfigurationPropertyEntry(Type source, Type target, Delegate mappingAction, Type dependencyTupleType, IDictionary<Type, string> namedResolutions)
+            :base(source, target)
         {
-            MapType = mapType;
-            Source = source;
-            Target = target;
             MappingAction = mappingAction;
             DependencyTupleType = dependencyTupleType;
             NamedResolutions = namedResolutions;
         }
     }
+
+    public class MappingConfigurationObjectEntry : MappingConfigurationEntry
+    {
+        public Delegate GetSourceProperty { get; set; }
+        public Delegate GetTargetProperty { get; set; }
+        public Delegate SetTargetProperty { get; set; }
+        public Type TargetPropertyType { get; set; }
+
+        public MappingConfigurationObjectEntry(Type source, Type target, Delegate getSourceProperty, Delegate getTargetProperty, Delegate setTargetProperty, Type targetPropertyType)
+            : base(source, target)
+        {
+            GetSourceProperty = getSourceProperty;
+            GetTargetProperty = getTargetProperty;
+            SetTargetProperty = setTargetProperty;
+            TargetPropertyType = targetPropertyType;
+        }
+    }
+
+
 
     public class MappingConfiguration
     {
