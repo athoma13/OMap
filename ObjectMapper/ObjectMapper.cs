@@ -4,33 +4,38 @@ using System.Linq;
 
 namespace ObjectMapper
 {
-    public interface IObjectMapper<in TSource, TTarget>
+    public interface IMapper
     {
-        void Map(TSource source, TTarget target);
-        TTarget Map(TSource source);
+        TTarget Map<TTarget>(object source);
+        void Map(object source, object target);
     }
 
-    public class ObjectMapper<TSource, TTarget> : IObjectMapper<TSource, TTarget>
+    public class ObjectMapper : IMapper
     {
-        private readonly MappingActionEntry[] _entries;
+        private readonly IDependencyResolver _resolver;
+        private readonly MappingConfigurationEntry[] _entries;
 
-        public ObjectMapper(IEnumerable<MappingActionEntry> entries)
+        public ObjectMapper(IMappingConfigurationProvider mappingConfigurationProvider, IDependencyResolver resolver)
         {
-            _entries = entries.ToArray();
+            _resolver = resolver;
+            _entries = mappingConfigurationProvider.GetConfiguration().GetEntries().ToArray();
         }
 
-        public void Map(TSource source, TTarget target)
+        public void Map(object source, object target)
         {
-            MapInternal(source, target);
+            MapInternal(source, target, GetApplicableEntries(source.GetType(), target.GetType(), true), new MappingContext(_resolver));
         }
 
-        public void MapInternal(object source, object target)
+        private static void MapInternal(object source, object target, MappingConfigurationEntry[] entries, MappingContext context)
         {
-            foreach (var entry in _entries)
+            foreach (var entry in entries)
             {
-                if (entry.HasDependencies)
+                object dependencyTuple = null;
+                if (entry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, entry);
+
+                if (dependencyTuple != null)
                 {
-                    entry.MappingAction.DynamicInvoke(source, target, entry.ResolvedDependencies);
+                    entry.MappingAction.DynamicInvoke(source, target, dependencyTuple);
                 }
                 else
                 {
@@ -39,46 +44,68 @@ namespace ObjectMapper
             }
         }
 
-
-        public TTarget Map(TSource source)
+        private static object GetDependencyTuple(MappingContext context, MappingConfigurationEntry entry)
         {
-            if (source == null) return default(TTarget);
+            if (entry.DependencyTupleType == null) return null;
+
+            var dependencies = new List<object>();
+            //dependencies are passed as a Tuple into the mapping function... find all generic arguments to determine dependencies.
+            foreach (var resolveByType in entry.DependencyTupleType.GenericTypeArguments)
+            {
+                //Check if the type is resolved by name... if so, use the name for resolution. Otherwise, just use type to resolve from IOC
+                string namedResolution;
+                entry.NamedResolutions.TryGetValue(resolveByType, out namedResolution);
+                dependencies.Add(context.ResolveDependency(resolveByType, namedResolution));
+            }
+
+            return Activator.CreateInstance(entry.DependencyTupleType, dependencies.ToArray());
+        }
+
+
+        private MappingConfigurationEntry[] GetApplicableEntries(Type source, Type target, bool explicitTarget)
+        {
+            if (explicitTarget)
+            {
+                return _entries.Where(x => x.Source.IsAssignableFrom(source) && x.Target.IsAssignableFrom(target)).ToArray();
+            }
+            else
+            {
+                return _entries.Where(x => x.Source.IsAssignableFrom(source) && target.IsAssignableFrom(x.Target)).ToArray();
+            }
+        }
+
+
+        public TTarget Map<TTarget>(object source)
+        {
+            var obj = Map(source, typeof(TTarget), new MappingContext(_resolver));
+            return obj == null ? default(TTarget) : (TTarget)obj;
+        }
+
+
+        private object Map(object source, Type requestedTargetType, MappingContext context)
+        {
+            if (source == null) return null;
 
             var sourceType = source.GetType();
-            var targetTypes = _entries.Where(x => x.Source == sourceType).Select(x => x.Target).Distinct().ToArray();
-            if (targetTypes.Length > 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, typeof(TTarget), string.Join(", ", targetTypes.Cast<object>().ToArray())));
+            var applicableEntries = GetApplicableEntries(sourceType, requestedTargetType, false);
+
+            var targetTypes = applicableEntries.Where(x => x.Source == sourceType).Select(x => x.Target).Distinct().ToArray();
+            if (targetTypes.Length > 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
             if (targetTypes.Length == 1)
             {
                 var result = Activator.CreateInstance(targetTypes[0]);
-                MapInternal(source, result);
-                return (TTarget)result;
+                MapInternal(source, result, applicableEntries, context);
+                return result;
             }
 
-            targetTypes = _entries.Select(x => x.Target).Distinct().ToArray();
-            if (targetTypes.Length == 0) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. No target types found", sourceType, typeof(TTarget)));
-            if (targetTypes.Length != 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, typeof(TTarget), string.Join(", ", targetTypes.Cast<object>().ToArray())));
+            targetTypes = applicableEntries.Select(x => x.Target).Distinct().ToArray();
+            if (targetTypes.Length == 0) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. No target types found", sourceType, requestedTargetType));
+            if (targetTypes.Length != 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
             var result1 = Activator.CreateInstance(targetTypes[0]);
-            MapInternal(source, result1);
-            return (TTarget)result1;
-
+            MapInternal(source, result1, applicableEntries, context);
+            return result1;
         }
-    }
 
-    public class MappingActionEntry
-    {
-        public Type Source { get; set; }
-        public Type Target { get; set; }
-        public Delegate MappingAction { get; private set; }
-        public object ResolvedDependencies { get; private set; }
-        public bool HasDependencies { get { return ResolvedDependencies != null; } }
-
-        public MappingActionEntry(Type source, Type target, Delegate mappingAction, object resolvedDependencies)
-        {
-            Source = source;
-            Target = target;
-            MappingAction = mappingAction;
-            ResolvedDependencies = resolvedDependencies;
-        }
     }
 
 }

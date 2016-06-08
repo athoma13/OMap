@@ -1,55 +1,147 @@
 using System;
 using System.Runtime.InteropServices.ComTypes;
+using NUnit.Framework;
 
 namespace ObjectMapper
 {
-    public class Test
+    public class ResolverMock : IDependencyResolver
+    {
+        public object Resolve(Type type, string name = null)
+        {
+            return null;
+        }
+    }
+
+
+    [TestFixture]
+    public class ObjectMapperTests
     {
         public class Foo
         {
-            public int Prope1 { get; set; }
+            public int Property1 { get; set; }
         }
         public class FooX : Foo
         {
-            public int Prope2 { get; set; }
+            public int Property2 { get; set; }
         }
 
 
         public class Bar
         {
-            public int Prope3 { get; set; }
+            public int Property3 { get; set; }
         }
 
         public class BarX : Bar
         {
-            public int Prope4 { get; set; }
+            public int Property4 { get; set; }
         }
 
 
-        public void Do()
+        [Test]
+        public void ShouldMapProperty()
         {
-            var builder = new ConfigurationBuilder();
+            var foo = new Foo() { Property1 = 18 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
+            });
 
-            builder.CreateMap<Foo, Bar>()
-                .WithDependencies<IConnectionPoint, IComparable>()
-                .MapProperty((x, d) => x.Prope1 + 1, x => x.Prope3);
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(foo.Property1, bar.Property3);
+        }
 
-            builder.CreateMap<FooX, BarX>()
-                .MapProperty(x => x.Prope2 + 10, x => x.Prope4);
+        [Test]
+        public void ShouldMapPropertyExistingObject()
+        {
+            var foo = new Foo() { Property1 = 18 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
+            });
+
+            var bar = new Bar();
+            mapper.Map(foo, bar);
+            Assert.AreEqual(foo.Property1, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldMapPropertyWithFunction()
+        {
+            var foo = new Foo() { Property1 = 18 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1 * 5, x => x.Property3);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(foo.Property1 * 5, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldMapPropertyWithFunctionExistingObject()
+        {
+            var foo = new Foo() { Property1 = 18 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1 * 5, x => x.Property3);
+            });
 
 
+            var bar = new Bar();
+            mapper.Map(foo, bar);
+            Assert.AreEqual(foo.Property1 * 5, bar.Property3);
+        }
 
-            var config = builder.Build();
+        [Test]
+        public void ShouldMapInheritedProperty()
+        {
+            var foo = new FooX() { Property1 = 18, Property2 = 7};
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
 
-            var factory = new MappingFactory(new ResolverMock(), config);
-            var mapper = factory.CreateMapper<Foo, Bar>();
+                builder.CreateMap<FooX, BarX>()
+                    .MapProperty(x => x.Property2, x => x.Property4);
+            });
 
-            var foo = new FooX() { Prope1 = 18, Prope2 = 6 };
-            var bar = mapper.Map(foo);
+            var bar = mapper.Map<Bar>(foo);
+            Assert.IsInstanceOf<BarX>(bar, "Even if you have requested 'Bar', the mapper found a more specific type and will return that instead.");
+            var barX = (BarX)bar;
+
+            Assert.AreEqual(foo.Property1, barX.Property3);
+            Assert.AreEqual(foo.Property2, barX.Property4);
+        }
+
+        [Test]
+        public void ShouldMapInheritedPropertyExistingObject()
+        {
+            var foo = new FooX() { Property1 = 18, Property2 = 7 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
+
+                builder.CreateMap<FooX, BarX>()
+                    .MapProperty(x => x.Property2, x => x.Property4);
+            });
+
+            var bar = new Bar();
+            mapper.Map(foo, bar);
+
+            Assert.AreEqual(foo.Property1, bar.Property3);
+        }
 
 
-
-
+        private static IMapper CreateMapper(IDependencyResolver resolver, Action<ConfigurationBuilder> builder)
+        {
+            var mappingProvider = new MappingConfigurationProvider(builder);
+            var mapper = new ObjectMapper(mappingProvider, resolver);
+            return mapper;
         }
     }
 }

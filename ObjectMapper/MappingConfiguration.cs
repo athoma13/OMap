@@ -34,6 +34,11 @@ namespace ObjectMapper
             ResolutionNameDictionary = new ReadOnlyDictionary<Type, string>(resolutionNames);
         }
 
+        public MappingConfigurationEntry[] GetEntries()
+        {
+            return _entries.ToArray();
+        }
+
         public MappingConfigurationEntry[] GetEntries(Type source, Type target)
         {
             var result = _entries.Where(x => source.IsAssignableFrom(x.Source) && target.IsAssignableFrom(x.Target)).ToArray();
