@@ -16,7 +16,7 @@ namespace ObjectMapper
 
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, BuildeConfigurationEntryType.SourceTargetNoDependency));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return this;
         }
     }
@@ -32,13 +32,13 @@ namespace ObjectMapper
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, BuildeConfigurationEntryType.SourceTargetNoDependency));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, BuildeConfigurationEntryType.SourceTargetWithDependency));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return this;
         }
     }
@@ -54,7 +54,7 @@ namespace ObjectMapper
 
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, BuildeConfigurationEntryType.SourceTargetNoDependency));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
 
@@ -116,13 +116,13 @@ namespace ObjectMapper
     {
         public LambdaExpression SourceExpression { get; private set; }
         public LambdaExpression TargetExpression { get; private set; }
-        public BuildeConfigurationEntryType EntryType { get; private set; }
+        public MapType MapType { get; set; }
 
-        public BuilderConfigurationEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, BuildeConfigurationEntryType entryType)
+        public BuilderConfigurationEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, MapType mapType)
         {
             SourceExpression = sourceExpression;
             TargetExpression = targetExpression;
-            EntryType = entryType;
+            MapType = mapType;
         }
     }
 
@@ -149,16 +149,18 @@ namespace ObjectMapper
             var configEntries = new List<MappingConfigurationEntry>();
             foreach (var entry in _builderEntries)
             {
-                var hasDependency = entry.EntryType == BuildeConfigurationEntryType.SourceTargetWithDependency;
-                var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression, hasDependency);
-                var configEntry = new MappingConfigurationEntry(entry.SourceExpression.Parameters[0].Type, entry.TargetExpression.Parameters[0].Type, action, hasDependency ? entry.SourceExpression.Parameters[1].Type : null, _namedResolutions);
+                var hasDependency = entry.SourceExpression.Parameters.Count > 1;
+                var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression);
+                var configEntry = new MappingConfigurationEntry(entry.SourceExpression.Parameters[0].Type, entry.TargetExpression.Parameters[0].Type, action, hasDependency ? entry.SourceExpression.Parameters[1].Type : null, _namedResolutions, entry.MapType);
                 configEntries.Add(configEntry);
             }
             return new MappingConfiguration(configEntries, _namedResolutions);
         }
 
-        private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target, bool hasDependency)
+        private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target)
         {
+            var hasDependency = source.Parameters.Count > 1;
+
             var pSource = Expression.Parameter(source.Parameters[0].Type, "source");
             var pDependencies = hasDependency ? Expression.Parameter(source.Parameters[1].Type, "dependencies") : null;
             var body = source.Body;
