@@ -191,9 +191,15 @@ namespace ObjectMapper
                     .MapProperty(x => x.Property2, x => x.Property4);
             });
 
-            var barX = mapper.Map<BarX>(foo);
-            Assert.AreEqual(0, barX.Property3);
-            Assert.AreEqual(foo.Property2, barX.Property4);
+            //Not specifying TTargetBase will skip all mappings from BarX upwards (the inheritance chain).
+            var barX1 = mapper.Map<BarX, BarX>(foo);
+            Assert.AreEqual(0, barX1.Property3);
+            Assert.AreEqual(7, barX1.Property4);
+
+            //Specifying TTargetBase will enture all mappings from Bar downwards (the inheritance chain) are applied.
+            var barX2 = mapper.Map<BarX, Bar>(foo);
+            Assert.AreEqual(18, barX2.Property3);
+            Assert.AreEqual(7, barX2.Property4);
         }
 
 

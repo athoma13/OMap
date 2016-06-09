@@ -7,7 +7,7 @@ namespace ObjectMapper
 {
     public interface IObjectMapper
     {
-        TTarget Map<TTarget>(object source);
+        TTarget Map<TTarget, TTargetBase>(object source) where TTarget : TTargetBase;
         void Map(object source, object target);
     }
 
@@ -145,9 +145,9 @@ namespace ObjectMapper
             return enumerables[0].GetGenericArguments()[0];
         }
 
-        public TTarget Map<TTarget>(object source)
+        public TTarget Map<TTarget, TTargetBase>(object source) where TTarget : TTargetBase
         {
-            var obj = Map(source, typeof(TTarget), new MappingContext(_resolver));
+            var obj = Map(source, typeof(TTargetBase), new MappingContext(_resolver));
             return obj == null ? default(TTarget) : (TTarget)obj;
         }
 
