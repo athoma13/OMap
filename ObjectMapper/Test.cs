@@ -1,16 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Runtime.InteropServices.ComTypes;
+using System.Security.Cryptography.X509Certificates;
 using NUnit.Framework;
 
 namespace ObjectMapper
 {
     public class ResolverMock : IDependencyResolver
     {
+        private readonly Dictionary<Tuple<Type, string>, Delegate> _dependencies = new Dictionary<Tuple<Type, string>, Delegate>();
+
+        public void Add<T>(Func<T> dependency, string name = null)
+        {
+            _dependencies[Tuple.Create(typeof(T), name)] = dependency;
+        }
+
         public object Resolve(Type type, string name = null)
         {
-            return null;
+            Delegate tmp;
+            if (!_dependencies.TryGetValue(Tuple.Create(type, name), out tmp)) throw new InvalidOperationException("Dependency not registered");
+            return tmp.DynamicInvoke();
         }
     }
 
@@ -51,7 +62,6 @@ namespace ObjectMapper
             public int Property1 { get; set; }
             public Bar Bar { get; set; }
         }
-
         public class BarC
         {
             public int Property1 { get; set; }
@@ -66,6 +76,22 @@ namespace ObjectMapper
                 BarListNotEmpty = new List<Bar>() { new Bar() };
                 BarListNoSetterNotEmpty = new List<Bar>() { new Bar() };
             }
+        }
+        public class Dependency1
+        {
+            private static readonly Random _random = new Random();
+
+            public int RandomProperty { get; private set; }
+            public int GlobalProperty1 { get; set; }
+
+            public Dependency1()
+            {
+                while (RandomProperty == 0)
+                {
+                    RandomProperty = _random.Next();
+                }
+            }
+
         }
 
 
@@ -131,7 +157,7 @@ namespace ObjectMapper
         [Test]
         public void ShouldMapInheritedProperty()
         {
-            var foo = new FooX() { Property1 = 18, Property2 = 7};
+            var foo = new FooX() { Property1 = 18, Property2 = 7 };
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 builder.CreateMap<Foo, Bar>()
@@ -148,6 +174,28 @@ namespace ObjectMapper
             Assert.AreEqual(foo.Property1, barX.Property3);
             Assert.AreEqual(foo.Property2, barX.Property4);
         }
+
+        [Test]
+        public void ShouldNotLookForParentsWhenMappingInheritedProperties()
+        {
+            //NOTE: By design, when calling Map<FooX>, no mappings for Foo will be used - eventhough FooX inherits from Foo.
+            //To get all mappings, ca
+
+            var foo = new FooX() { Property1 = 18, Property2 = 7 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
+
+                builder.CreateMap<FooX, BarX>()
+                    .MapProperty(x => x.Property2, x => x.Property4);
+            });
+
+            var barX = mapper.Map<BarX>(foo);
+            Assert.AreEqual(0, barX.Property3);
+            Assert.AreEqual(foo.Property2, barX.Property4);
+        }
+
 
         [Test]
         public void ShouldMapInheritedPropertyExistingObject()
@@ -229,7 +277,7 @@ namespace ObjectMapper
             });
 
             var bar = new Bar();
-            var barO = new BarO {Bar = bar };
+            var barO = new BarO { Bar = bar };
             mapper.Map(foo, barO);
             Assert.AreEqual(foo.Property1, barO.Property1);
             Assert.AreEqual(foo.Foo.Property1, barO.Bar.Property3);
@@ -239,7 +287,7 @@ namespace ObjectMapper
         [Test]
         public void ShouldMapTargetArray()
         {
-            var fooC = new FooC() {Property1 = 18, Foos = new Foo[] {new Foo() {Property1 = 1}, new Foo() {Property1 = 1}}};
+            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
 
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
@@ -261,7 +309,7 @@ namespace ObjectMapper
         [Test]
         public void ShouldMapTargetArrayWithInheritedElements()
         {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 65 }, new FooX() { Property1 = 79, Property2 = 871} } };
+            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 65 }, new FooX() { Property1 = 79, Property2 = 871 } } };
 
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
@@ -372,6 +420,123 @@ namespace ObjectMapper
             Assert.AreEqual(fooC.Foos[0].Property1, barC.BarListNoSetterNotEmpty[0].Property3);
             Assert.AreEqual(fooC.Foos[1].Property1, barC.BarListNoSetterNotEmpty[1].Property3);
         }
+
+        [Test]
+        public void ShouldMapWithResolver()
+        {
+            var foo = new Foo() { Property1 = 891 };
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1() { GlobalProperty1 = 5 });
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>()
+                    .MapProperty((x, dep) => dep.Item1.GlobalProperty1 + x.Property1, x => x.Property3);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(896, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldMapWithResolverByName()
+        {
+            var foo = new Foo() { Property1 = 891 };
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1() { GlobalProperty1 = 5 }, "dependency1");
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>("dependency1")
+                    .MapProperty((x, dep) => dep.Item1.GlobalProperty1 + x.Property1, x => x.Property3);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(896, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldMapWithDifferentDependenciesResolvedByName()
+        {
+            var foo = new FooX() { Property1 = 10, Property2 = 100 };
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1() { GlobalProperty1 = 1 }, "dependency1");
+            resolver.Add(() => new Dependency1() { GlobalProperty1 = 2 }, "dependency2");
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>("dependency1")
+                    .MapProperty((x, dep) => dep.Item1.GlobalProperty1 + x.Property1, x => x.Property3);
+
+                builder.CreateMap<FooX, BarX>()
+                    .WithDependencies<Dependency1>("dependency2")
+                    .MapProperty((x, dep) => dep.Item1.GlobalProperty1 + x.Property2, x => x.Property4);
+
+            });
+
+            var bar = (BarX)mapper.Map<Bar>(foo);
+            Assert.AreEqual(11, bar.Property3);
+            Assert.AreEqual(102, bar.Property4);
+        }
+
+
+
+        [Test]
+        public void ShouldUseSameDependencyDuringMappingOperation()
+        {
+            //While Mapping, if requesting the same dependency on multiple maps, the same dependency should be
+            //used (instead of going back to the IOC container).
+            //The idea is that mapping an object is a single function (and therefore the dependencies should be resolved only once).
+
+            var foo = new FooX();
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1());
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<FooX, BarX>()
+                    .WithDependencies<Dependency1>()
+                    .MapProperty((x, dep) => dep.Item1.RandomProperty, x => x.Property4)
+                    .MapProperty((x, dep) => dep.Item1.RandomProperty, x => x.Property3);
+            });
+
+            var bar1 = mapper.Map<BarX>(foo);
+            var bar2 = mapper.Map<BarX>(foo);
+
+            Assert.AreEqual(bar1.Property3, bar1.Property4, "Those properties must be the same!");
+            Assert.AreEqual(bar2.Property3, bar2.Property4, "Those properties must be the same!");
+            Assert.AreNotEqual(bar1.Property3, bar2.Property3, "Those properties cannot be the same!");
+            Assert.AreNotEqual(bar1.Property4, bar2.Property4, "Those properties cannot be the same!");
+        }
+
+        [Test]
+        public void ShouldUseSameDependencyDuringMappingOperationOfComposedChildren()
+        {
+            var fooC = new FooC() { Foos = new Foo[] { new Foo(), new Foo(), new Foo() } };
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1());
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>()
+                    .MapProperty((x, d) => d.Item1.RandomProperty, x => x.Property3);
+
+                builder.CreateMap<FooC, BarC>()
+                    .MapCollection(x => x.Foos, x => x.BarArray);
+            });
+
+            var barC = mapper.Map<BarC>(fooC);
+            var randomNumber = barC.BarArray.Select(x => x.Property3).Distinct().ToArray();
+            Assert.AreEqual(1, randomNumber.Length, "Expected all Bars to have the same Property3 because they should have used the same dependency");
+            Assert.AreNotEqual(0, randomNumber[0], "Should be a random int - not equal to zero");
+        }
+
+
+
 
 
 

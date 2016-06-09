@@ -81,12 +81,10 @@ namespace ObjectMapper
     public class MappingConfiguration
     {
         private readonly List<MappingConfigurationEntry> _entries;
-        public ReadOnlyDictionary<Type, string> ResolutionNameDictionary { get; private set; }
 
-        public MappingConfiguration(List<MappingConfigurationEntry> entries, IDictionary<Type, string> resolutionNames)
+        public MappingConfiguration(List<MappingConfigurationEntry> entries)
         {
             _entries = entries;
-            ResolutionNameDictionary = new ReadOnlyDictionary<Type, string>(resolutionNames);
         }
 
         public MappingConfigurationEntry[] GetEntries()

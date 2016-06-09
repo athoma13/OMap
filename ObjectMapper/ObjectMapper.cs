@@ -43,9 +43,9 @@ namespace ObjectMapper
                     if (MapCollection(source, target, context, entry)) continue;
                     throw new InvalidOperationException(string.Format("Unknown mapping entry {0}", entry.GetType()));
                 }
-                catch (MappingException ex)
+                catch (Exception ex)
                 {
-                    throw new MappingException(string.Format("Mapping Error while mapping {0}. See InnerException for details", entry.EntryDescription), ex);
+                    throw new MappingException(string.Format("Error while mapping {0}. See InnerException for details", entry.EntryDescription), ex);
                 }
             }
         }
