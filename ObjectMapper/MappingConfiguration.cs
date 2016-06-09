@@ -7,7 +7,8 @@ namespace ObjectMapper
     {
         MapProperty,
         MapObject,
-        MapCollection
+        MapCollection,
+        MapFunction
     }
 
     public class MappingConfigurationEntry
@@ -72,6 +73,22 @@ namespace ObjectMapper
             TargetPropertyType = targetPropertyType;
         }
     }
+
+    public class MappingConfigurationFunctionEntry : MappingConfigurationEntry
+    {
+        public Delegate Action { get; private set; }
+        public Type DependencyTupleType { get; private set; }
+        public IDictionary<Type, string> NamedResolutions { get; private set; }
+
+        public MappingConfigurationFunctionEntry(Type source, Type target, string entryDescription, Delegate action, Type dependencyTupleType, IDictionary<Type, string> namedResolutions)
+            : base(source, target, entryDescription)
+        {
+            Action = action;
+            DependencyTupleType = dependencyTupleType;
+            NamedResolutions = namedResolutions;
+        }
+    }
+
 
     public class MappingConfiguration
     {

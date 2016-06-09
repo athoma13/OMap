@@ -41,6 +41,7 @@ namespace ObjectMapper
                     if (MapProperty(source, target, context, entry)) continue;
                     if (MapObject(source, target, context, entry)) continue;
                     if (MapCollection(source, target, context, entry)) continue;
+                    if (MapFunction(source, target, context, entry)) continue;
                     throw new InvalidOperationException(string.Format("Unknown mapping entry {0}", entry.GetType()));
                 }
                 catch (Exception ex)
@@ -55,8 +56,7 @@ namespace ObjectMapper
             var entry = baseEntry as MappingConfigurationPropertyEntry;
             if (entry == null) return false;
 
-            object dependencyTuple = null;
-            if (entry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, entry);
+            var dependencyTuple = GetDependencyTuple(context, entry.DependencyTupleType, entry.NamedResolutions);
 
             if (dependencyTuple != null)
             {
@@ -74,7 +74,7 @@ namespace ObjectMapper
         {
             var entry = baseEntry as MappingConfigurationObjectEntry;
             if (entry == null) return false;
-            
+
             var sourceObject = entry.GetSourceProperty.DynamicInvoke(source);
             var targetObject = entry.GetTargetProperty.DynamicInvoke(target);
             if (targetObject == null)
@@ -97,7 +97,7 @@ namespace ObjectMapper
 
             var sourceEnumerable = (IEnumerable)entry.GetSourceProperty.DynamicInvoke(source);
             var targetCollection = entry.GetTargetProperty.DynamicInvoke(target);
-            var sourceObjects =  sourceEnumerable == null ? new object[0] : sourceEnumerable.Cast<object>().ToArray();
+            var sourceObjects = sourceEnumerable == null ? new object[0] : sourceEnumerable.Cast<object>().ToArray();
             var collectionItemType = GetCollectionItemType(entry.TargetPropertyType);
             var mappedObjects = sourceObjects.Select(x => Map(x, collectionItemType, context)).ToArray();
 
@@ -135,6 +135,26 @@ namespace ObjectMapper
 
             return true;
         }
+
+        private bool MapFunction(object source, object target, MappingContext context, MappingConfigurationEntry baseEntry)
+        {
+            var entry = baseEntry as MappingConfigurationFunctionEntry;
+            if (entry == null) return false;
+
+            var dependencyTuple = GetDependencyTuple(context, entry.DependencyTupleType, entry.NamedResolutions);
+
+            if (dependencyTuple != null)
+            {
+                entry.Action.DynamicInvoke(source, target, dependencyTuple);
+            }
+            else
+            {
+                entry.Action.DynamicInvoke(source, target);
+            }
+
+            return true;
+        }
+
 
 
         private static Type GetCollectionItemType(Type collectionType)
@@ -176,21 +196,21 @@ namespace ObjectMapper
             return result1;
         }
 
-        private static object GetDependencyTuple(MappingContext context, MappingConfigurationPropertyEntry entry)
+        private static object GetDependencyTuple(MappingContext context, Type dependencyTupleType, IDictionary<Type, string> namedResolutions)
         {
-            if (entry.DependencyTupleType == null) return null;
+            if (dependencyTupleType == null) return null;
 
             var dependencies = new List<object>();
             //dependencies are passed as a Tuple into the mapping function... find all generic arguments to determine dependencies.
-            foreach (var resolveByType in entry.DependencyTupleType.GenericTypeArguments)
+            foreach (var resolveByType in dependencyTupleType.GenericTypeArguments)
             {
                 //Check if the type is resolved by name... if so, use the name for resolution. Otherwise, just use type to resolve from IOC
                 string namedResolution;
-                entry.NamedResolutions.TryGetValue(resolveByType, out namedResolution);
+                namedResolutions.TryGetValue(resolveByType, out namedResolution);
                 dependencies.Add(context.ResolveDependency(resolveByType, namedResolution));
             }
 
-            return Activator.CreateInstance(entry.DependencyTupleType, dependencies.ToArray());
+            return Activator.CreateInstance(dependencyTupleType, dependencies.ToArray());
         }
 
 

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Security.Cryptography.X509Certificates;
 using NUnit.Framework;
 
-namespace ObjectMapper
+namespace ObjectMapper.Tests
 {
     public class ResolverMock : IDependencyResolver
     {
@@ -541,9 +541,77 @@ namespace ObjectMapper
             Assert.AreNotEqual(0, randomNumber[0], "Should be a random int - not equal to zero");
         }
 
+        [Test]
+        public void ShouldUseMappingFunction()
+        {
+            var foo = new Foo() { Property1 = 18 };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapFunction((src, tgt) => tgt.Property3 = src.Property1);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(foo.Property1, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldUseMappingFunctionWithDependencies()
+        {
+            var foo = new Foo() { Property1 = 18 };
+            var resolver = new ResolverMock();
+            resolver.Add(() => new Dependency1() { GlobalProperty1 = 10 });
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>()
+                    .MapFunction((src, tgt, dependencies) => tgt.Property3 = src.Property1 + dependencies.Item1.GlobalProperty1);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(28, bar.Property3);
+        }
+
+        [Test]
+        public void ShouldUseMappingFunctionWithDependenciesDoNotUseDependency()
+        {
+            var foo = new Foo() { Property1 = 6 };
+            var resolver = new ResolverMock();
+
+            var mapper = CreateMapper(resolver, builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .WithDependencies<Dependency1>()
+                    .MapFunction((src, tgt) => tgt.Property3 = src.Property1);
+            });
+
+            var bar = mapper.Map<Bar>(foo);
+            Assert.AreEqual(6, bar.Property3);
+        }
 
 
+        [Test]
+        public void ShouldUseMappingFunctionInherited()
+        {
+            var fooX = new FooX() { Property1 = 1, Property2 = 7};
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                //NOTE: This is interesting because FooBarMapping function take Foo and Bar, not FooX and BarX
+                builder.CreateMap<FooX, BarX>()
+                    .MapFunction(FooBarMappingFunction)
+                    .MapProperty(x => x.Property2, x => x.Property4);
+            });
 
+            var barX = mapper.Map<BarX>(fooX);
+            Assert.AreEqual(1, barX.Property3);
+            Assert.AreEqual(7, barX.Property4);
+        }
+
+        private static void FooBarMappingFunction(Foo foo, Bar bar)
+        {
+            bar.Property3 = foo.Property1;
+        }
 
 
         private static IObjectMapper CreateMapper(IDependencyResolver resolver, Action<ConfigurationBuilder> builder)

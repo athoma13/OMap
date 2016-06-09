@@ -16,21 +16,29 @@ namespace ObjectMapper
 
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return this;
         }
+
+        public BuilderNode<TSource, TTarget> MapFunction(Action<TSource, TTarget> action)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
+            return this;
+        }
+
+
 
 
     }
@@ -46,25 +54,33 @@ namespace ObjectMapper
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return this;
         }
+        public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            return this;
+        }
+
         public BuilderNode<TSource, TTarget, TDependencies> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return this;
         }
-
-
-
-        public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
+        public BuilderNode<TSource, TTarget, TDependencies> MapFunction(Action<TSource, TTarget, TDependencies> action)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), typeof(TDependencies)));
+            return this;
+        }
+        public BuilderNode<TSource, TTarget, TDependencies> MapFunction(Action<TSource, TTarget> action)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
             return this;
         }
     }
@@ -79,19 +95,26 @@ namespace ObjectMapper
         }
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
+        public BuilderNode<TSource, TTarget> MapFunction(Action<TSource, TTarget> action)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
+            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+        }
+
+
         public BuilderNode<TSource, TTarget, Tuple<T>> WithDependencies<T>(string name = null)
         {
             _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T), name } });
@@ -146,21 +169,50 @@ namespace ObjectMapper
         SourceTargetNoDependency,
     }
 
-    public class BuilderConfigurationEntry
+    public abstract class BuilderConfigurationEntry
     {
-        public LambdaExpression SourceExpression { get; private set; }
-        public LambdaExpression TargetExpression { get; private set; }
         public Dictionary<Type, string> NamedResolutions { get; set; }
-        public MapType MapType { get; set; }
+        public MapType MapType { get; private set; }
+        public Type SourceType { get; private set; }
+        public Type TargetType { get; private set; }
+        public bool HasDependencyArgument { get; private set; }
 
-        public BuilderConfigurationEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, MapType mapType)
+        protected BuilderConfigurationEntry(MapType mapType, Type sourceType, Type targetType, bool hasDependencyArgument)
         {
-            SourceExpression = sourceExpression;
-            TargetExpression = targetExpression;
+            HasDependencyArgument = hasDependencyArgument;
             MapType = mapType;
+            SourceType = sourceType;
+            TargetType = targetType;
             NamedResolutions = new Dictionary<Type, string>();
         }
     }
+
+    public class BuilderConfigurationSourceTargetExpressionEntry : BuilderConfigurationEntry
+    {
+        public LambdaExpression SourceExpression { get; private set; }
+        public LambdaExpression TargetExpression { get; private set; }
+
+        public BuilderConfigurationSourceTargetExpressionEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, MapType mapType)
+            : base(mapType, sourceExpression.Parameters[0].Type, targetExpression.Parameters[0].Type, sourceExpression.Parameters.Count > 1)
+        {
+            SourceExpression = sourceExpression;
+            TargetExpression = targetExpression;
+        }
+    }
+
+    public class BuilderConfigurationFunctionMapEntry : BuilderConfigurationEntry
+    {
+        public Delegate Action { get; private set; }
+        public Type DependencyTupleType { get; private set; }
+
+        public BuilderConfigurationFunctionMapEntry(Delegate action, Type sourceType, Type targetType, Type dependencyTupleType)
+            : base(MapType.MapFunction, sourceType, targetType, dependencyTupleType != null)
+        {
+            Action = action;
+            DependencyTupleType = dependencyTupleType;
+        }
+    }
+
 
     public class ConfigurationBuilder : IAddConfigurationEntry
     {
@@ -188,70 +240,91 @@ namespace ObjectMapper
             var configEntries = new List<MappingConfigurationEntry>();
             foreach (var entry in _builderEntries)
             {
-                var sourceType = entry.SourceExpression.Parameters[0].Type;
-                var targetType = entry.TargetExpression.Parameters[0].Type;
-                var entryDescription = CreateEntryDescription(entry);
-                var hasDependency = entry.SourceExpression.Parameters.Count > 1;
+                var sourceType = entry.SourceType;
+                var targetType = entry.TargetType;
+                var entryDescription = CreateEntryDescription(entry, sourceType, targetType);
+                var hasDependency = entry.HasDependencyArgument;
 
                 if (entry.MapType == MapType.MapProperty)
                 {
-                    var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression);
+                    var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
+                    var action = CreateMappingAction(sourceTargetEntry.SourceExpression, sourceTargetEntry.TargetExpression);
                     var configEntry = new MappingConfigurationPropertyEntry(
                         sourceType,
                         targetType,
                         entryDescription,
                         action,
-                        hasDependency ? entry.SourceExpression.Parameters[1].Type : null,
-                        entry.NamedResolutions);
+                        hasDependency ? sourceTargetEntry.SourceExpression.Parameters[1].Type : null,
+                        sourceTargetEntry.NamedResolutions);
 
                     configEntries.Add(configEntry);
                 }
                 else if (entry.MapType == MapType.MapObject)
                 {
-                    var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
+                    var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
+                    var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
                     if (targetMember == null) throw new MappingException("Could not find object type on target");
 
                     var configEntry = new MappingConfigurationObjectEntry(
                         sourceType,
                         targetType,
                         entryDescription,
-                        CreateGetterFunction(entry.SourceExpression),
-                        CreateGetterFunction(entry.TargetExpression),
-                        CreateObjectSetterMappingAction(entry.TargetExpression),
-                        entry.TargetExpression.ReturnType);
+                        CreateGetterFunction(sourceTargetEntry.SourceExpression),
+                        CreateGetterFunction(sourceTargetEntry.TargetExpression),
+                        CreateObjectSetterMappingAction(sourceTargetEntry.TargetExpression),
+                        sourceTargetEntry.TargetExpression.ReturnType);
 
                     configEntries.Add(configEntry);
                 }
                 else if (entry.MapType == MapType.MapCollection)
                 {
-                    var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
+                    var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
+                    var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
                     if (targetMember == null) throw new MappingException("Could not find collection type on target");
 
                     var configEntry = new MappingConfigurationCollectionEntry(
                         sourceType,
                         targetType,
                         entryDescription,
-                        CreateGetterFunction(entry.SourceExpression),
-                        CreateGetterFunction(entry.TargetExpression),
-                        CreateObjectSetterMappingAction(entry.TargetExpression),
+                        CreateGetterFunction(sourceTargetEntry.SourceExpression),
+                        CreateGetterFunction(sourceTargetEntry.TargetExpression),
+                        CreateObjectSetterMappingAction(sourceTargetEntry.TargetExpression),
                         targetMember.Type);
 
                     configEntries.Add(configEntry);
                 }
+                else if (entry.MapType == MapType.MapFunction)
+                {
+                    var functionEntry = (BuilderConfigurationFunctionMapEntry)entry;
+
+                    var configEntry = new MappingConfigurationFunctionEntry(
+                        sourceType,
+                        targetType,
+                        entryDescription,
+                        functionEntry.Action,
+                        functionEntry.DependencyTupleType,
+                        functionEntry.NamedResolutions
+                        );
+
+                    configEntries.Add(configEntry);
+                }
+
 
             }
             return new MappingConfiguration(configEntries);
         }
 
-        private static string CreateEntryDescription(BuilderConfigurationEntry entry)
+        private static string CreateEntryDescription(BuilderConfigurationEntry entry, Type sourceType, Type targetType)
         {
-            var sourceMember = MemberExpessionVisitor.GetMember(entry.SourceExpression);
-            var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
-            var sourceType = entry.SourceExpression.Parameters[0].Type;
-            var targetType = entry.TargetExpression.Parameters[0].Type;
-
             var sourceTypeName = sourceType.Name;
             var targetTypeName = targetType.Name;
+
+            if (entry.MapType == MapType.MapFunction) return string.Format("MappingFunction({0}, {1})", sourceTypeName, targetTypeName);
+
+            //Entry MUST be BuilderConfigurationSourceTargetExpressionEntry for any other MapTypes...
+            var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
+            var sourceMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.SourceExpression);
+            var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
 
             var result = string.Format("{0}.{1} -> {2}.{3}",
                 sourceTypeName,
