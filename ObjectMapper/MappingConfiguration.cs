@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace ObjectMapper
 {
@@ -75,9 +73,6 @@ namespace ObjectMapper
         }
     }
 
-
-
-
     public class MappingConfiguration
     {
         private readonly List<MappingConfigurationEntry> _entries;
@@ -90,12 +85,6 @@ namespace ObjectMapper
         public MappingConfigurationEntry[] GetEntries()
         {
             return _entries.ToArray();
-        }
-
-        public MappingConfigurationEntry[] GetEntries(Type source, Type target)
-        {
-            var result = _entries.Where(x => source.IsAssignableFrom(x.Source) && target.IsAssignableFrom(x.Target)).ToArray();
-            return result;
         }
     }
 }
