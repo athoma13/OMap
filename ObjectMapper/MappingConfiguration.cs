@@ -16,11 +16,13 @@ namespace ObjectMapper
     {
         public Type Source { get; private set; }
         public Type Target { get; private set; }
+        public string EntryDescription { get; private set; }
 
-        public MappingConfigurationEntry(Type source, Type target)
+        public MappingConfigurationEntry(Type source, Type target, string entryDescription)
         {
             Source = source;
             Target = target;
+            EntryDescription = entryDescription;
         }
     }
 
@@ -30,8 +32,8 @@ namespace ObjectMapper
         public Type DependencyTupleType { get; private set; }
         public IDictionary<Type, string> NamedResolutions { get; private set; }
 
-        public MappingConfigurationPropertyEntry(Type source, Type target, Delegate mappingAction, Type dependencyTupleType, IDictionary<Type, string> namedResolutions)
-            :base(source, target)
+        public MappingConfigurationPropertyEntry(Type source, Type target, string entryDescription, Delegate mappingAction, Type dependencyTupleType, IDictionary<Type, string> namedResolutions)
+            :base(source, target, entryDescription)
         {
             MappingAction = mappingAction;
             DependencyTupleType = dependencyTupleType;
@@ -46,8 +48,8 @@ namespace ObjectMapper
         public Delegate SetTargetProperty { get; set; }
         public Type TargetPropertyType { get; set; }
 
-        public MappingConfigurationObjectEntry(Type source, Type target, Delegate getSourceProperty, Delegate getTargetProperty, Delegate setTargetProperty, Type targetPropertyType)
-            : base(source, target)
+        public MappingConfigurationObjectEntry(Type source, Type target, string entryDescription, Delegate getSourceProperty, Delegate getTargetProperty, Delegate setTargetProperty, Type targetPropertyType)
+            : base(source, target, entryDescription)
         {
             GetSourceProperty = getSourceProperty;
             GetTargetProperty = getTargetProperty;
@@ -55,6 +57,24 @@ namespace ObjectMapper
             TargetPropertyType = targetPropertyType;
         }
     }
+
+    public class MappingConfigurationCollectionEntry : MappingConfigurationEntry
+    {
+        public Delegate GetSourceProperty { get; set; }
+        public Delegate GetTargetProperty { get; set; }
+        public Delegate SetTargetProperty { get; set; }
+        public Type TargetPropertyType { get; set; }
+
+        public MappingConfigurationCollectionEntry(Type source, Type target, string entryDescription, Delegate getSourceProperty, Delegate getTargetProperty, Delegate setTargetProperty, Type targetPropertyType)
+            : base(source, target, entryDescription)
+        {
+            GetSourceProperty = getSourceProperty;
+            GetTargetProperty = getTargetProperty;
+            SetTargetProperty = setTargetProperty;
+            TargetPropertyType = targetPropertyType;
+        }
+    }
+
 
 
 

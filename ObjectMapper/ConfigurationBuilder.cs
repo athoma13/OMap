@@ -26,6 +26,13 @@ namespace ObjectMapper
             return this;
         }
 
+        public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            return this;
+        }
+
+
     }
 
     public class BuilderNode<TSource, TTarget, TDependencies>
@@ -47,6 +54,12 @@ namespace ObjectMapper
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
             return this;
         }
+        public BuilderNode<TSource, TTarget, TDependencies> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            return this;
+        }
+
 
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
@@ -64,7 +77,6 @@ namespace ObjectMapper
         {
             _addConfigurationEntry = addConfigurationEntry;
         }
-
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapProperty));
@@ -75,7 +87,11 @@ namespace ObjectMapper
             _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapObject));
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
-
+        public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
+        {
+            _addConfigurationEntry.AddEntry(new BuilderConfigurationEntry(from, to, MapType.MapCollection));
+            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+        }
         public BuilderNode<TSource, TTarget, Tuple<T>> WithDependencies<T>(string name = null)
         {
             _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T), name } });
@@ -174,7 +190,8 @@ namespace ObjectMapper
                     var action = CreateMappingAction(entry.SourceExpression, entry.TargetExpression);
                     var configEntry = new MappingConfigurationPropertyEntry(
                         entry.SourceExpression.Parameters[0].Type, 
-                        entry.TargetExpression.Parameters[0].Type, 
+                        entry.TargetExpression.Parameters[0].Type,
+                        CreateEntryDescription(entry), 
                         action, 
                         hasDependency ? entry.SourceExpression.Parameters[1].Type : null, 
                         _namedResolutions);
@@ -183,9 +200,13 @@ namespace ObjectMapper
                 }
                 else if (entry.MapType == MapType.MapObject)
                 {
+                    var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
+                    if (targetMember == null) throw new MappingException("Could not find object type on target");
+
                     var configEntry = new MappingConfigurationObjectEntry(
                         entry.SourceExpression.Parameters[0].Type, 
                         entry.TargetExpression.Parameters[0].Type,
+                        CreateEntryDescription(entry),
                         CreateGetterFunction(entry.SourceExpression), 
                         CreateGetterFunction(entry.TargetExpression), 
                         CreateObjectSetterMappingAction(entry.TargetExpression),
@@ -193,8 +214,43 @@ namespace ObjectMapper
 
                     configEntries.Add(configEntry);
                 }
+                else if (entry.MapType == MapType.MapCollection)
+                {
+                    var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
+                    if (targetMember == null) throw new MappingException("Could not find collection type on target");
+
+                    var configEntry = new MappingConfigurationCollectionEntry(
+                        entry.SourceExpression.Parameters[0].Type,
+                        entry.TargetExpression.Parameters[0].Type,
+                        CreateEntryDescription(entry),
+                        CreateGetterFunction(entry.SourceExpression),
+                        CreateGetterFunction(entry.TargetExpression),
+                        CreateObjectSetterMappingAction(entry.TargetExpression),
+                        targetMember.Type);
+
+                    configEntries.Add(configEntry);
+                }
+
             }
             return new MappingConfiguration(configEntries, _namedResolutions);
+        }
+
+        private static string CreateEntryDescription(BuilderConfigurationEntry entry)
+        {
+            var sourceMember = MemberExpessionVisitor.GetMember(entry.SourceExpression);
+            var targetMember = MemberExpessionVisitor.GetMember(entry.TargetExpression);
+
+            var sourceTypeName = entry.SourceExpression.Parameters[0].Type.Name;
+            var targetTypeName = entry.TargetExpression.Parameters[0].Type.Name;
+
+            var result = string.Format("{0}.{1} -> {2}.{3}",
+                sourceTypeName,
+                sourceMember == null ? "?" : sourceMember.Member.Name,
+                targetTypeName,
+                targetMember == null ? "?" : targetMember.Member.Name
+                );
+
+            return result;
         }
 
         private static Delegate CreateObjectSetterMappingAction(LambdaExpression target)
@@ -216,8 +272,6 @@ namespace ObjectMapper
         }
 
 
-
-
         private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target)
         {
             var hasDependency = source.Parameters.Count > 1;
@@ -237,6 +291,24 @@ namespace ObjectMapper
             return lamda.Compile();
         }
 
+
+        private class MemberExpessionVisitor : ExpressionVisitor
+        {
+            private MemberExpression Result { get; set; }
+
+            protected override Expression VisitMember(MemberExpression node)
+            {
+                if (Result == null) Result = node;
+                return base.VisitMember(node);
+            }
+
+            public static MemberExpression GetMember(Expression expression)
+            {
+                var visitor = new MemberExpessionVisitor();
+                visitor.Visit(expression);
+                return visitor.Result;
+            }
+        }
 
         private class ReplaceExpressionVisitor : ExpressionVisitor
         {

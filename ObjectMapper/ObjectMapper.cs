@@ -1,21 +1,22 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace ObjectMapper
 {
-    public interface IMapper
+    public interface IObjectMapper
     {
         TTarget Map<TTarget>(object source);
         void Map(object source, object target);
     }
 
-    public class ObjectMapper : IMapper
+    public class ObjectObjectMapper : IObjectMapper
     {
         private readonly IDependencyResolver _resolver;
         private readonly MappingConfigurationEntry[] _entries;
 
-        public ObjectMapper(IMappingConfigurationProvider mappingConfigurationProvider, IDependencyResolver resolver)
+        public ObjectObjectMapper(IMappingConfigurationProvider mappingConfigurationProvider, IDependencyResolver resolver)
         {
             _resolver = resolver;
             _entries = mappingConfigurationProvider.GetConfiguration().GetEntries().ToArray();
@@ -35,39 +36,113 @@ namespace ObjectMapper
         {
             foreach (var entry in entries)
             {
-                var propertyEntry = entry as MappingConfigurationPropertyEntry;
-                if (propertyEntry != null)
+                try
                 {
-                    object dependencyTuple = null;
-                    if (propertyEntry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, propertyEntry);
-
-                    if (dependencyTuple != null)
-                    {
-                        propertyEntry.MappingAction.DynamicInvoke(source, target, dependencyTuple);
-                    }
-                    else
-                    {
-                        propertyEntry.MappingAction.DynamicInvoke(source, target);
-                    }
-                    continue;
+                    if (MapProperty(source, target, context, entry)) continue;
+                    if (MapObject(source, target, context, entry)) continue;
+                    if (MapCollection(source, target, context, entry)) continue;
+                    throw new InvalidOperationException(string.Format("Unknown mapping entry {0}", entry.GetType()));
                 }
-
-                var objectEntry = entry as MappingConfigurationObjectEntry;
-                if (objectEntry != null)
+                catch (MappingException ex)
                 {
-                    var sourceObject = objectEntry.GetSourceProperty.DynamicInvoke(source);
-                    var targetObject = objectEntry.GetTargetProperty.DynamicInvoke(target);
-                    if (targetObject == null)
-                    {
-                        var newObject = Map(sourceObject, objectEntry.TargetPropertyType, context);
-                        objectEntry.SetTargetProperty.DynamicInvoke(target, newObject);
-                    }
-                    else
-                    {
-                        Map(sourceObject, targetObject, context);
-                    }
+                    throw new MappingException(string.Format("Mapping Error while mapping {0}. See InnerException for details", entry.EntryDescription), ex);
                 }
             }
+        }
+
+        private bool MapProperty(object source, object target, MappingContext context, MappingConfigurationEntry baseEntry)
+        {
+            var entry = baseEntry as MappingConfigurationPropertyEntry;
+            if (entry == null) return false;
+
+            object dependencyTuple = null;
+            if (entry.DependencyTupleType != null) dependencyTuple = GetDependencyTuple(context, entry);
+
+            if (dependencyTuple != null)
+            {
+                entry.MappingAction.DynamicInvoke(source, target, dependencyTuple);
+            }
+            else
+            {
+                entry.MappingAction.DynamicInvoke(source, target);
+            }
+
+            return true;
+        }
+
+        private bool MapObject(object source, object target, MappingContext context, MappingConfigurationEntry baseEntry)
+        {
+            var entry = baseEntry as MappingConfigurationObjectEntry;
+            if (entry == null) return false;
+            
+            var sourceObject = entry.GetSourceProperty.DynamicInvoke(source);
+            var targetObject = entry.GetTargetProperty.DynamicInvoke(target);
+            if (targetObject == null)
+            {
+                var newObject = Map(sourceObject, entry.TargetPropertyType, context);
+                entry.SetTargetProperty.DynamicInvoke(target, newObject);
+            }
+            else
+            {
+                Map(sourceObject, targetObject, context);
+            }
+
+            return true;
+        }
+
+        private bool MapCollection(object source, object target, MappingContext context, MappingConfigurationEntry baseEntry)
+        {
+            var entry = baseEntry as MappingConfigurationCollectionEntry;
+            if (entry == null) return false;
+
+            var sourceEnumerable = (IEnumerable)entry.GetSourceProperty.DynamicInvoke(source);
+            var targetCollection = entry.GetTargetProperty.DynamicInvoke(target);
+            var sourceObjects =  sourceEnumerable == null ? new object[0] : sourceEnumerable.Cast<object>().ToArray();
+            var collectionItemType = GetCollectionItemType(entry.TargetPropertyType);
+            var mappedObjects = sourceObjects.Select(x => Map(x, collectionItemType, context)).ToArray();
+
+            if (targetCollection == null)
+            {
+                if (entry.TargetPropertyType.IsArray)
+                {
+                    var array = Array.CreateInstance(collectionItemType, mappedObjects.Length);
+                    Array.Copy(mappedObjects, array, mappedObjects.Length);
+                    entry.SetTargetProperty.DynamicInvoke(target, array);
+                }
+                else
+                {
+                    var list = Activator.CreateInstance(entry.TargetPropertyType) as IList;
+                    if (list == null) throw new MappingException(string.Format("Type {0} does not implement IList", entry.TargetPropertyType));
+                    foreach (var obj in mappedObjects)
+                    {
+                        list.Add(obj);
+                    }
+                    entry.SetTargetProperty.DynamicInvoke(target, list);
+                }
+            }
+            else
+            {
+                if (entry.TargetPropertyType.IsArray) throw new MappingException("Cannot map collection to initialized array.");
+                var list = targetCollection as IList;
+                if (list == null) throw new MappingException("Cannot map collection. Target does not implement IList");
+                if (list.IsReadOnly) throw new MappingException("Cannot map collection to readonly IList");
+                list.Clear();
+                foreach (var obj in mappedObjects)
+                {
+                    list.Add(obj);
+                }
+            }
+
+            return true;
+        }
+
+
+        private static Type GetCollectionItemType(Type collectionType)
+        {
+            var enumerables = collectionType.GetInterfaces().Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>)).ToArray();
+            if (enumerables.Length == 0) throw new MappingException(string.Format("Cannot determine item type for collectionType {0}", collectionType));
+            if (enumerables.Length > 1) throw new MappingException(string.Format("Cannot determine item type for collectionType {0} - Too many implementations of IEnumerable<>", collectionType));
+            return enumerables[0].GetGenericArguments()[0];
         }
 
         public TTarget Map<TTarget>(object source)
@@ -85,7 +160,7 @@ namespace ObjectMapper
             var applicableEntries = GetApplicableEntries(sourceType, requestedTargetType, false);
 
             var targetTypes = applicableEntries.Where(x => x.Source == sourceType).Select(x => x.Target).Distinct().ToArray();
-            if (targetTypes.Length > 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
+            if (targetTypes.Length > 1) throw new MappingException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
             if (targetTypes.Length == 1)
             {
                 var result = Activator.CreateInstance(targetTypes[0]);
@@ -94,8 +169,8 @@ namespace ObjectMapper
             }
 
             targetTypes = applicableEntries.Select(x => x.Target).Distinct().ToArray();
-            if (targetTypes.Length == 0) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. No target types found", sourceType, requestedTargetType));
-            if (targetTypes.Length != 1) throw new InvalidOperationException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
+            if (targetTypes.Length == 0) throw new MappingException(string.Format("Cannot map from {0} to {1}. No target types found", sourceType, requestedTargetType));
+            if (targetTypes.Length != 1) throw new MappingException(string.Format("Cannot map from {0} to {1}. Cannot Decide what the target type should be. Options are: {2}", sourceType, requestedTargetType, string.Join(", ", targetTypes.Cast<object>().ToArray())));
             var result1 = Activator.CreateInstance(targetTypes[0]);
             MapInternal(source, result1, applicableEntries, context);
             return result1;
