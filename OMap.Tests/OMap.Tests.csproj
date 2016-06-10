@@ -7,10 +7,11 @@
     <ProjectGuid>{7C39015D-3476-432F-A363-9149BCC09E9B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ObjectMapper.Tests</RootNamespace>
-    <AssemblyName>ObjectMapper.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <RootNamespace>OMap.Tests</RootNamespace>
+    <AssemblyName>OMap.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -48,9 +49,9 @@
     <Compile Include="Test.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ObjectMapper\ObjectMapper.csproj">
+    <ProjectReference Include="..\OMap\OMap.csproj">
       <Project>{7bf9ff6a-beac-4f26-9522-24abc7e36b01}</Project>
-      <Name>ObjectMapper</Name>
+      <Name>OMap</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

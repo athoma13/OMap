@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace ObjectMapper
+namespace OMap
 {
     public class BuilderNode<TSource, TTarget>
     {

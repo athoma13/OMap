@@ -6,9 +6,9 @@
     <title>$title$</title>
     <authors>$author$</authors>
     <owners>$author$</owners>
-    <licenseUrl>http://LICENSE_URL_HERE_OR_DELETE_THIS_LINE</licenseUrl>
-    <projectUrl>https://github.com/athoma13/ObjectMapper</projectUrl>
-    <iconUrl>https://github.com/athoma13/ObjectMapper/blob/master/LICENSE</iconUrl>
+    <licenseUrl>https://github.com/athoma13/OMap/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/athoma13/OMap</projectUrl>
+    <!--iconUrl>https://github.com/athoma13/ObjectMapper/blob/master/LICENSE</iconUrl-->
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>An object mapper where mappings can either be explicit or convention-based. Maps are defined for per Source to Target in a fluent-configuration style. Supports Inheritance, Dependency-Injected mappings, Mapping Functions. Currently designed for Domain to Dto mappings</description>
     <releaseNotes>Initial Release</releaseNotes>

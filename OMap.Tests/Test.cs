@@ -6,7 +6,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Security.Cryptography.X509Certificates;
 using NUnit.Framework;
 
-namespace ObjectMapper.Tests
+namespace OMap.Tests
 {
     public class ResolverMock : IDependencyResolver
     {

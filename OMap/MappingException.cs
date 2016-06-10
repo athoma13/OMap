@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.Serialization;
 
-namespace ObjectMapper
+namespace OMap
 {
     [Serializable]
     public class MappingException : Exception

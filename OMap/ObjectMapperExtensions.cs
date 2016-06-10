@@ -1,4 +1,4 @@
-namespace ObjectMapper
+namespace OMap
 {
     public static class ObjectMapperExtensions
     {

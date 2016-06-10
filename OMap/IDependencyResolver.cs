@@ -1,6 +1,6 @@
 using System;
 
-namespace ObjectMapper
+namespace OMap
 {
     public interface IDependencyResolver
     {

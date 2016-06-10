@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace ObjectMapper
+namespace OMap
 {
     public enum MapType
     {
