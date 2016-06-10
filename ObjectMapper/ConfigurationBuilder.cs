@@ -9,7 +9,7 @@ namespace ObjectMapper
     {
         private readonly IAddConfigurationEntry _addConfigurationEntry;
 
-        public BuilderNode(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNode(IAddConfigurationEntry addConfigurationEntry)
         {
             _addConfigurationEntry = addConfigurationEntry;
         }
@@ -47,7 +47,7 @@ namespace ObjectMapper
     {
         private readonly IAddConfigurationEntry _addConfigurationEntry;
 
-        public BuilderNode(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNode(IAddConfigurationEntry addConfigurationEntry)
         {
             _addConfigurationEntry = addConfigurationEntry;
         }
@@ -89,7 +89,7 @@ namespace ObjectMapper
     {
         private readonly IAddConfigurationEntry _addConfigurationEntry;
 
-        public BuilderNodeWithDependencies(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNodeWithDependencies(IAddConfigurationEntry addConfigurationEntry)
         {
             _addConfigurationEntry = addConfigurationEntry;
         }
@@ -163,7 +163,7 @@ namespace ObjectMapper
         }
     }
 
-    public interface IAddConfigurationEntry
+    internal interface IAddConfigurationEntry
     {
         void AddEntry(BuilderConfigurationEntry entry);
         void SetNamedResolutions(IDictionary<Type, string> namedResolutions);
@@ -175,7 +175,7 @@ namespace ObjectMapper
         SourceTargetNoDependency,
     }
 
-    public abstract class BuilderConfigurationEntry
+    internal abstract class BuilderConfigurationEntry
     {
         public Dictionary<Type, string> NamedResolutions { get; set; }
         public MapType MapType { get; private set; }
@@ -193,7 +193,7 @@ namespace ObjectMapper
         }
     }
 
-    public class BuilderConfigurationSourceTargetExpressionEntry : BuilderConfigurationEntry
+    internal class BuilderConfigurationSourceTargetExpressionEntry : BuilderConfigurationEntry
     {
         public LambdaExpression SourceExpression { get; private set; }
         public LambdaExpression TargetExpression { get; private set; }
@@ -206,7 +206,7 @@ namespace ObjectMapper
         }
     }
 
-    public class BuilderConfigurationFunctionMapEntry : BuilderConfigurationEntry
+    internal class BuilderConfigurationFunctionMapEntry : BuilderConfigurationEntry
     {
         public Delegate Action { get; private set; }
         public Type DependencyTupleType { get; private set; }
