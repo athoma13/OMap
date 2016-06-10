@@ -4,8 +4,7 @@
     <id>$id$</id>
     <version>$version$</version>
     <title>$title$</title>
-    <authors>$author$</authors>
-    <owners>$author$</owners>
+    <authors>Arnaud Thomasse</authors>
     <licenseUrl>https://github.com/athoma13/OMap/blob/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/athoma13/OMap</projectUrl>
     <!--iconUrl>https://github.com/athoma13/ObjectMapper/blob/master/LICENSE</iconUrl-->
