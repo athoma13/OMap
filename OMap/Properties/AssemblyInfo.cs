@@ -5,12 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("ObjectMapper")]
+[assembly: AssemblyTitle("OMap")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("BSA")]
-[assembly: AssemblyProduct("ObjectMapper")]
-[assembly: AssemblyCopyright("Copyright © BSA 2016")]
+[assembly: AssemblyProduct("OMap")]
+[assembly: AssemblyCopyright("Copyright © Arnaud Thomasse")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
