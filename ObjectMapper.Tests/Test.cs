@@ -47,7 +47,13 @@ namespace ObjectMapper.Tests
             public int Property1 { get; set; }
             public Foo[] Foos { get; set; }
         }
-
+        public class FooAll
+        {
+            public int Property1 { get; set; }
+            public string Property2 { get; set; }
+            public bool Property3 { get; set; }
+            public DateTime Property4 { get; set; }
+        }
         public class Bar
         {
             public int Property3 { get; set; }
@@ -76,6 +82,13 @@ namespace ObjectMapper.Tests
                 BarListNotEmpty = new List<Bar>() { new Bar() };
                 BarListNoSetterNotEmpty = new List<Bar>() { new Bar() };
             }
+        }
+        public class BarAll
+        {
+            public int Property1 { get; set; }
+            public string Property2 { get; set; }
+            public bool Property3 { get; set; }
+            public DateTime Property4 { get; set; }
         }
         public class Dependency1
         {
@@ -607,6 +620,44 @@ namespace ObjectMapper.Tests
             Assert.AreEqual(1, barX.Property3);
             Assert.AreEqual(7, barX.Property4);
         }
+
+        [Test]
+        public void ShouldMapAll()
+        {
+            var now = DateTime.Now;
+            var fooAll = new FooAll() { Property1 = 59 , Property2 = "Hello", Property3 = true, Property4 = now };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<FooAll, BarAll>()
+                    .MapAll();
+            });
+
+            var barAll = mapper.Map<BarAll>(fooAll);
+            Assert.AreEqual(59, barAll.Property1);
+            Assert.AreEqual("Hello", barAll.Property2);
+            Assert.AreEqual(true, barAll.Property3);
+            Assert.AreEqual(now, barAll.Property4);
+        }
+
+        [Test]
+        public void ShouldMapAllExcept()
+        {
+            var now = DateTime.Now;
+            var fooAll = new FooAll() { Property1 = 59, Property2 = "Hello", Property3 = true, Property4 = now };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<FooAll, BarAll>()
+                    .MapAll(x => x.Property1, x => x.Property2);
+            });
+
+            var barAll = mapper.Map<BarAll>(fooAll);
+            Assert.AreEqual(0, barAll.Property1);
+            Assert.AreEqual(null, barAll.Property2);
+            Assert.AreEqual(true, barAll.Property3);
+            Assert.AreEqual(now, barAll.Property4);
+        }
+
+
 
         private static void FooBarMappingFunction(Foo foo, Bar bar)
         {

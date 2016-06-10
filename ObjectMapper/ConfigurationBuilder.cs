@@ -114,6 +114,12 @@ namespace ObjectMapper
             return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
         }
 
+        public BuilderNodeWithDependencies<TSource, TTarget> MapAll(params Expression<Func<TTarget, object>>[] exceptions)
+        {
+            MapAllHelper.MapAll(_addConfigurationEntry, typeof(TSource), typeof(TTarget), exceptions);
+            return this;
+        }
+
 
         public BuilderNode<TSource, TTarget, Tuple<T>> WithDependencies<T>(string name = null)
         {

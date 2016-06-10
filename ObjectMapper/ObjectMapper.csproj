@@ -42,6 +42,7 @@
   <ItemGroup>
     <Compile Include="IDependencyResolver.cs" />
     <Compile Include="ConfigurationBuilder.cs" />
+    <Compile Include="MapAllHelper.cs" />
     <Compile Include="MappingConfiguration.cs" />
     <Compile Include="MappingConfigurationProvider.cs" />
     <Compile Include="MappingContext.cs" />
