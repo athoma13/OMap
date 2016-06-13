@@ -103,7 +103,7 @@ namespace OMap
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
-        public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
+        public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IEnumerable<TProperty2>>> to)
         {
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
