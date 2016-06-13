@@ -48,6 +48,7 @@
     <Compile Include="MappingConfigurationProvider.cs" />
     <Compile Include="MappingContext.cs" />
     <Compile Include="MappingException.cs" />
+    <Compile Include="MappingHelper.cs" />
     <Compile Include="ObjectMapper.cs" />
     <Compile Include="ObjectMapperExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

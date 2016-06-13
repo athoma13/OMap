@@ -98,7 +98,7 @@ namespace OMap
             var sourceEnumerable = (IEnumerable)entry.GetSourceProperty.DynamicInvoke(source);
             var targetCollection = entry.GetTargetProperty.DynamicInvoke(target);
             var sourceObjects = sourceEnumerable == null ? new object[0] : sourceEnumerable.Cast<object>().ToArray();
-            var collectionItemType = GetCollectionItemType(entry.TargetPropertyType);
+            var collectionItemType = MappingHelper.GetCollectionItemType(entry.TargetPropertyType);
             var mappedObjects = sourceObjects.Select(x => Map(x, collectionItemType, context)).ToArray();
 
             if (targetCollection == null)
@@ -155,22 +155,11 @@ namespace OMap
             return true;
         }
 
-
-
-        private static Type GetCollectionItemType(Type collectionType)
-        {
-            var enumerables = collectionType.GetInterfaces().Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>)).ToArray();
-            if (enumerables.Length == 0) throw new MappingException(string.Format("Cannot determine item type for collectionType {0}", collectionType));
-            if (enumerables.Length > 1) throw new MappingException(string.Format("Cannot determine item type for collectionType {0} - Too many implementations of IEnumerable<>", collectionType));
-            return enumerables[0].GetGenericArguments()[0];
-        }
-
         public TTarget Map<TTarget, TTargetBase>(object source) where TTarget : TTargetBase
         {
             var obj = Map(source, typeof(TTargetBase), new MappingContext(_resolver));
             return obj == null ? default(TTarget) : (TTarget)obj;
         }
-
 
         private object Map(object source, Type requestedTargetType, MappingContext context)
         {

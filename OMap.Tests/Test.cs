@@ -53,6 +53,8 @@ namespace OMap.Tests
             public string Property2 { get; set; }
             public bool Property3 { get; set; }
             public DateTime Property4 { get; set; }
+            public Foo[] Foos { get; set; }
+            public Foo FooSingle { get; set; }
         }
         public class Bar
         {
@@ -89,6 +91,8 @@ namespace OMap.Tests
             public string Property2 { get; set; }
             public bool Property3 { get; set; }
             public DateTime Property4 { get; set; }
+            public Bar[] Foos { get; set; }
+            public Bar FooSingle { get; set; }
         }
         public class Dependency1
         {
@@ -607,7 +611,7 @@ namespace OMap.Tests
         [Test]
         public void ShouldUseMappingFunctionInherited()
         {
-            var fooX = new FooX() { Property1 = 1, Property2 = 7};
+            var fooX = new FooX() { Property1 = 1, Property2 = 7 };
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 //NOTE: This is interesting because FooBarMapping function take Foo and Bar, not FooX and BarX
@@ -625,11 +629,11 @@ namespace OMap.Tests
         public void ShouldMapAll()
         {
             var now = DateTime.Now;
-            var fooAll = new FooAll() { Property1 = 59 , Property2 = "Hello", Property3 = true, Property4 = now };
+            var fooAll = new FooAll() { Property1 = 59, Property2 = "Hello", Property3 = true, Property4 = now };
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 builder.CreateMap<FooAll, BarAll>()
-                    .MapAll();
+                    .MapAll(x => x.FooSingle, x => x.Foos);
             });
 
             var barAll = mapper.Map<BarAll>(fooAll);
@@ -647,7 +651,7 @@ namespace OMap.Tests
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 builder.CreateMap<FooAll, BarAll>()
-                    .MapAll(x => x.Property1, x => x.Property2);
+                    .MapAll(x => x.FooSingle, x => x.Foos, x => x.Property1, x => x.Property2);
             });
 
             var barAll = mapper.Map<BarAll>(fooAll);
@@ -656,6 +660,43 @@ namespace OMap.Tests
             Assert.AreEqual(true, barAll.Property3);
             Assert.AreEqual(now, barAll.Property4);
         }
+
+        [Test]
+        public void ShouldMapAllWithObject()
+        {
+            var now = DateTime.Now;
+            var fooAll = new FooAll()
+            {
+                Property1 = 87,
+                Property2 = "Hello",
+                Property3 = true,
+                Property4 = now,
+                FooSingle = new Foo() { Property1 = 51 },
+                Foos = new [] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 2 } , new Foo() { Property1 = 3 } , new FooX() { Property1 = 4, Property2 = 11 } }
+            };
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                builder.CreateMap<Foo, Bar>()
+                    .MapProperty(x => x.Property1, x => x.Property3);
+
+                builder.CreateMap<FooX, BarX>()
+                    .MapProperty(x => x.Property2, x => x.Property4);
+
+                builder.CreateMap<FooAll, BarAll>()
+                    .MapAll();
+            });
+
+            var barAll = mapper.Map<BarAll>(fooAll);
+            Assert.AreEqual(87, barAll.Property1);
+            Assert.AreEqual(now, barAll.Property4);
+            Assert.AreEqual(1, barAll.Foos[0].Property3);
+            Assert.AreEqual(51, barAll.FooSingle.Property3);
+            Assert.AreEqual(2, barAll.Foos[1].Property3);
+            Assert.AreEqual(3, barAll.Foos[2].Property3);
+            Assert.AreEqual(4, barAll.Foos[3].Property3);
+            Assert.AreEqual(11, ((BarX)barAll.Foos[3]).Property4);
+        }
+
 
 
 

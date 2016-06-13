@@ -7,34 +7,34 @@ namespace OMap
 {
     public class BuilderNode<TSource, TTarget>
     {
-        private readonly IAddConfigurationEntry _addConfigurationEntry;
+        private readonly IInternalBuilder _internalBuilder;
 
-        internal BuilderNode(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNode(IInternalBuilder internalBuilder)
         {
-            _addConfigurationEntry = addConfigurationEntry;
+            _internalBuilder = internalBuilder;
         }
 
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapFunction(Action<TSource, TTarget> action)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
+            _internalBuilder.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
             return this;
         }
 
@@ -45,128 +45,129 @@ namespace OMap
 
     public class BuilderNode<TSource, TTarget, TDependencies>
     {
-        private readonly IAddConfigurationEntry _addConfigurationEntry;
+        private readonly IInternalBuilder _internalBuilder;
 
-        internal BuilderNode(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNode(IInternalBuilder internalBuilder)
         {
-            _addConfigurationEntry = addConfigurationEntry;
+            _internalBuilder = internalBuilder;
         }
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget, TDependencies> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapFunction(Action<TSource, TTarget, TDependencies> action)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), typeof(TDependencies)));
+            _internalBuilder.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), typeof(TDependencies)));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapFunction(Action<TSource, TTarget> action)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
+            _internalBuilder.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
             return this;
         }
     }
 
     public class BuilderNodeWithDependencies<TSource, TTarget>
     {
-        private readonly IAddConfigurationEntry _addConfigurationEntry;
+        private readonly IInternalBuilder _internalBuilder;
 
-        internal BuilderNodeWithDependencies(IAddConfigurationEntry addConfigurationEntry)
+        internal BuilderNodeWithDependencies(IInternalBuilder internalBuilder)
         {
-            _addConfigurationEntry = addConfigurationEntry;
+            _internalBuilder = internalBuilder;
         }
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
-            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
-            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IList<TProperty2>>> to)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
-            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapFunction(Action<TSource, TTarget> action)
         {
-            _addConfigurationEntry.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
-            return new BuilderNode<TSource, TTarget>(_addConfigurationEntry);
+            _internalBuilder.AddEntry(new BuilderConfigurationFunctionMapEntry(action, typeof(TSource), typeof(TTarget), null));
+            return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
 
         public BuilderNodeWithDependencies<TSource, TTarget> MapAll(params Expression<Func<TTarget, object>>[] exceptions)
         {
-            MapAllHelper.MapAll(_addConfigurationEntry, typeof(TSource), typeof(TTarget), exceptions);
+            MapAllHelper.MapAll(_internalBuilder, typeof(TSource), typeof(TTarget), exceptions);
             return this;
         }
 
 
         public BuilderNode<TSource, TTarget, Tuple<T>> WithDependencies<T>(string name = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T), name } });
-            return new BuilderNode<TSource, TTarget, Tuple<T>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T), name } });
+            return new BuilderNode<TSource, TTarget, Tuple<T>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2>> WithDependencies<T1, T2>(string name1 = null, string name2 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3>> WithDependencies<T1, T2, T3>(string name1 = null, string name2 = null, string name3 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4>> WithDependencies<T1, T2, T3, T4>(string name1 = null, string name2 = null, string name3 = null, string name4 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5>> WithDependencies<T1, T2, T3, T4, T5>(string name1 = null, string name2 = null, string name3 = null, string name4 = null, string name5 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6>> WithDependencies<T1, T2, T3, T4, T5, T6>(string name1 = null, string name2 = null, string name3 = null, string name4 = null, string name5 = null, string name6 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7>> WithDependencies<T1, T2, T3, T4, T5, T6, T7>(string name1 = null, string name2 = null, string name3 = null, string name4 = null, string name5 = null, string name6 = null, string name7 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 }, { typeof(T7), name7 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 }, { typeof(T7), name7 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7>>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7, T8>> WithDependencies<T1, T2, T3, T4, T5, T6, T7, T8>(string name1 = null, string name2 = null, string name3 = null, string name4 = null, string name5 = null, string name6 = null, string name7 = null, string name8 = null)
         {
-            _addConfigurationEntry.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 }, { typeof(T7), name7 }, { typeof(T8), name8 } });
-            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7, T8>>(_addConfigurationEntry);
+            _internalBuilder.SetNamedResolutions(new Dictionary<Type, string>() { { typeof(T1), name1 }, { typeof(T2), name2 }, { typeof(T3), name3 }, { typeof(T4), name4 }, { typeof(T5), name5 }, { typeof(T6), name6 }, { typeof(T7), name7 }, { typeof(T8), name8 } });
+            return new BuilderNode<TSource, TTarget, Tuple<T1, T2, T3, T4, T5, T6, T7, T8>>(_internalBuilder);
         }
     }
 
-    internal interface IAddConfigurationEntry
+    internal interface IInternalBuilder
     {
         void AddEntry(BuilderConfigurationEntry entry);
         void SetNamedResolutions(IDictionary<Type, string> namedResolutions);
+        BuilderConfigurationEntry[] GetEntries();
     }
 
     public enum BuildeConfigurationEntryType
@@ -220,7 +221,7 @@ namespace OMap
     }
 
 
-    public class ConfigurationBuilder : IAddConfigurationEntry
+    public class ConfigurationBuilder : IInternalBuilder
     {
         private readonly List<BuilderConfigurationEntry> _builderEntries = new List<BuilderConfigurationEntry>();
         private IDictionary<Type, string> _namedResolutions = new Dictionary<Type, string>();
@@ -229,16 +230,21 @@ namespace OMap
         {
             return new BuilderNodeWithDependencies<TSource, TTarget>(this);
         }
-        void IAddConfigurationEntry.AddEntry(BuilderConfigurationEntry entry)
+        void IInternalBuilder.AddEntry(BuilderConfigurationEntry entry)
         {
             //Copy NamedResolutions to the entry
             entry.NamedResolutions = new Dictionary<Type, string>(_namedResolutions);
             _builderEntries.Add(entry);
         }
-        void IAddConfigurationEntry.SetNamedResolutions(IDictionary<Type, string> names)
+        void IInternalBuilder.SetNamedResolutions(IDictionary<Type, string> names)
         {
             //NOTE: This is temporary - may be overwritten multiple times during configuration of the Mapper.
             _namedResolutions = names;
+        }
+
+        BuilderConfigurationEntry[] IInternalBuilder.GetEntries()
+        {
+            return _builderEntries.ToArray();
         }
 
         public MappingConfiguration Build()

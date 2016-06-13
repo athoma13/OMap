@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -9,7 +10,7 @@ namespace OMap
 {
     internal static class MapAllHelper
     {
-        public static void MapAll(IAddConfigurationEntry builder, Type source, Type target, IEnumerable<LambdaExpression> exceptions)
+        public static void MapAll(IInternalBuilder builder, Type source, Type target, IEnumerable<LambdaExpression> exceptions)
         {
             var targetMembers = GetMemberNames(target);
             var exclusions = GetMemberNames(exceptions);
@@ -17,11 +18,11 @@ namespace OMap
             var equalityComparer = StringComparer.OrdinalIgnoreCase;
             var sourceMembers = new HashSet<string>(GetMemberNames(source), equalityComparer);
 
-            
+
 
             var pairs = actualTargetMembers.Select(x => Tuple.Create(x, sourceMembers.FirstOrDefault(s => equalityComparer.Equals(s, x)))).ToArray();
             var notMatched = pairs.Where(x => x.Item2 == null).Select(x => x.Item1).ToArray();
-            if (notMatched.Any()) throw new MappingException(string.Format("Could not find mapping equivalent for {0}", string.Join(", ", notMatched)));
+            if (notMatched.Any()) throw new MappingException(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2}", source.Name, target.Name, string.Join(", ", notMatched)));
 
             foreach (var pair in pairs)
             {
@@ -29,8 +30,31 @@ namespace OMap
                 var sourceMemberName = pair.Item2;
                 var targetExpression = CreateLambdaExpression(target, targetMemberName);
                 var sourceExpression = CreateLambdaExpression(source, sourceMemberName);
-                if (targetExpression.ReturnType != sourceExpression.ReturnType) throw new MappingException(string.Format("Mapping for {0}.{1} and {2}.{3} do not have the same types. Source has {4} and Target {5}", source.Name, sourceMemberName, target.Name, targetMemberName, sourceExpression.ReturnType.Name, targetExpression.ReturnType.Name));
-                builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, MapType.MapProperty));
+                if (targetExpression.ReturnType != sourceExpression.ReturnType)
+                {
+                    var entries = builder.GetEntries();
+                    Type sourceItemType;
+                    Type targetItemType;
+                    var isSourceEnumerable = MappingHelper.TryGetCollectionType(sourceExpression.ReturnType, out sourceItemType);
+                    var isTargetEnumerable = MappingHelper.TryGetCollectionType(targetExpression.ReturnType, out targetItemType);
+                    var sourceMappingType = isSourceEnumerable ? sourceItemType : sourceExpression.ReturnType;
+                    var targetMappingType = isTargetEnumerable ? targetItemType : targetExpression.ReturnType;
+
+                    var hasMapping = entries.Any(x => x.SourceType == sourceMappingType && x.TargetType == targetMappingType);
+                    if (hasMapping)
+                    {
+                        var isCollection = isSourceEnumerable || isTargetEnumerable;
+                        builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, isCollection ? MapType.MapCollection : MapType.MapObject));
+                    }
+                    else
+                    {
+                        throw new MappingException(string.Format("Could not create map for {0}.{1}->{2}.{3}. No Mapping found for {4}->{5}.", source.Name, sourceMemberName, target.Name, targetMemberName, sourceExpression.ReturnType.Name, targetExpression.ReturnType.Name));
+                    }
+                }
+                else
+                {
+                    builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, MapType.MapProperty));
+                }
             }
         }
 
@@ -41,13 +65,6 @@ namespace OMap
             var lambda = Expression.Lambda(memberAccess, p);
             return lambda;
         }
-
-        
-
-
-
-        
-
 
         private static string[] GetMemberNames(IEnumerable<LambdaExpression> expressions)
         {
