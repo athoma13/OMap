@@ -111,7 +111,10 @@ namespace OMap
                 }
                 else
                 {
-                    var list = Activator.CreateInstance(entry.TargetPropertyType) as IList;
+                    var nonAbstractType = entry.TargetPropertyType;
+                    if (nonAbstractType.IsInterface) nonAbstractType = typeof(List<>).MakeGenericType(collectionItemType);
+
+                    var list = Activator.CreateInstance(nonAbstractType) as IList;
                     if (list == null) throw new MappingException(string.Format("Type {0} does not implement IList", entry.TargetPropertyType));
                     foreach (var obj in mappedObjects)
                     {

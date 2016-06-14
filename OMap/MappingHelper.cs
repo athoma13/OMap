@@ -39,7 +39,10 @@ namespace OMap
 
         private static Type[] GetItemCollectionTypes(Type collectionType)
         {
-            var enumerables = collectionType.GetInterfaces().Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>)).ToArray();
+            var interfaces = collectionType.GetInterfaces().ToList();
+            if (collectionType.IsInterface) interfaces.Add(collectionType);
+
+            var enumerables = interfaces.Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>)).ToArray();
             return enumerables.Select(x => x.GetGenericArguments()[0]).ToArray();
         }
 

@@ -22,7 +22,7 @@ namespace OMap
 
             var pairs = actualTargetMembers.Select(x => Tuple.Create(x, sourceMembers.FirstOrDefault(s => equalityComparer.Equals(s, x)))).ToArray();
             var notMatched = pairs.Where(x => x.Item2 == null).Select(x => x.Item1).ToArray();
-            if (notMatched.Any()) throw new MappingException(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2}", source.Name, target.Name, string.Join(", ", notMatched)));
+            if (notMatched.Any()) throw new MappingException(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2} on destination type {1}", source.Name, target.Name, string.Join(", ", notMatched)));
 
             foreach (var pair in pairs)
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.InteropServices.ComTypes;
 using System.Security.Cryptography.X509Certificates;
 using NUnit.Framework;
@@ -75,6 +76,8 @@ namespace OMap.Tests
             public int Property1 { get; set; }
             public Bar[] BarArray { get; set; }
             public List<Bar> BarList { get; set; }
+            public IEnumerable<Bar> BarEnumerable { get; set; }
+            public IList<Bar> BarIList { get; set; }
             public List<Bar> BarListNoSetter { get; private set; }
             public List<Bar> BarListNotEmpty { get; set; }
             public List<Bar> BarListNoSetterNotEmpty { get; private set; }
@@ -310,29 +313,48 @@ namespace OMap.Tests
         [Test]
         public void ShouldMapTargetArray()
         {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
-
-            var mapper = CreateMapper(new ResolverMock(), builder =>
-            {
-                builder.CreateMap<Foo, Bar>()
-                    .MapProperty(x => x.Property1, x => x.Property3);
-
-                builder.CreateMap<FooC, BarC>()
-                    .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarArray);
-            });
-
-            var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarArray.Length);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarArray[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarArray[1].Property3);
+            AssertCollectionMap(x => x.BarArray);
         }
 
         [Test]
-        public void ShouldMapTargetArrayWithInheritedElements()
+        public void ShouldMapTargetList()
         {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 65 }, new FooX() { Property1 = 79, Property2 = 871 } } };
+            AssertCollectionMap(x => x.BarList);
+        }
+
+        [Test]
+        public void ShouldMapTargetIEnumerable()
+        {
+            AssertCollectionMap(x => x.BarEnumerable);
+        }
+
+        [Test]
+        public void ShouldMapTargetIList()
+        {
+            AssertCollectionMap(x => x.BarIList);
+        }
+
+        [Test]
+        public void ShouldMapTargetListNoSetter()
+        {
+            AssertCollectionMap(x => x.BarListNoSetter);
+        }
+
+        [Test]
+        public void ShouldMapTargetListNotEmpty()
+        {
+            AssertCollectionMap(x => x.BarListNotEmpty);
+        }
+
+        [Test]
+        public void ShouldMapTargetListNoSetterNotEmpty()
+        {
+            AssertCollectionMap(x => x.BarListNoSetterNotEmpty);
+        }
+
+        private void AssertCollectionMap(Expression<Func<BarC, IEnumerable<Bar>>> collectionExpression)
+        {
+            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 2 }, new FooX() { Property1 = 3, Property2 = 33}  } };
 
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
@@ -344,105 +366,23 @@ namespace OMap.Tests
 
                 builder.CreateMap<FooC, BarC>()
                     .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarArray);
+                    .MapCollection(x => x.Foos, collectionExpression);
             });
 
             var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarArray.Length);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarArray[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarArray[1].Property3);
-            Assert.IsInstanceOf<BarX>(barC.BarArray[1]);
-            Assert.AreEqual(((FooX)fooC.Foos[1]).Property2, ((BarX)barC.BarArray[1]).Property4);
+            var func = collectionExpression.Compile();
+            var enumerable = func(barC);
+
+            Assert.AreEqual(18, barC.Property1);
+            Assert.AreEqual(3, enumerable.Count());
+            Assert.AreEqual(1, enumerable.ElementAt(0).Property3);
+            Assert.AreEqual(2, enumerable.ElementAt(1).Property3);
+            Assert.AreEqual(3, enumerable.ElementAt(2).Property3);
+            Assert.IsInstanceOf<BarX>(enumerable.ElementAt(2));
+            Assert.AreEqual(33, ((BarX)enumerable.ElementAt(2)).Property4);
         }
 
-        [Test]
-        public void ShouldMapTargetList()
-        {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
 
-            var mapper = CreateMapper(new ResolverMock(), builder =>
-            {
-                builder.CreateMap<Foo, Bar>()
-                    .MapProperty(x => x.Property1, x => x.Property3);
-
-                builder.CreateMap<FooC, BarC>()
-                    .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarList);
-            });
-
-            var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarList.Count);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarList[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarList[1].Property3);
-        }
-
-        [Test]
-        public void ShouldMapTargetListNoSetter()
-        {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
-
-            var mapper = CreateMapper(new ResolverMock(), builder =>
-            {
-                builder.CreateMap<Foo, Bar>()
-                    .MapProperty(x => x.Property1, x => x.Property3);
-
-                builder.CreateMap<FooC, BarC>()
-                    .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarListNoSetter);
-            });
-
-            var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarListNoSetter.Count);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarListNoSetter[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarListNoSetter[1].Property3);
-        }
-
-        [Test]
-        public void ShouldMapTargetListNotEmpty()
-        {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
-
-            var mapper = CreateMapper(new ResolverMock(), builder =>
-            {
-                builder.CreateMap<Foo, Bar>()
-                    .MapProperty(x => x.Property1, x => x.Property3);
-
-                builder.CreateMap<FooC, BarC>()
-                    .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarListNotEmpty);
-            });
-
-            var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarListNotEmpty.Count);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarListNotEmpty[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarListNotEmpty[1].Property3);
-        }
-
-        [Test]
-        public void ShouldMapTargetListNoSetterNotEmpty()
-        {
-            var fooC = new FooC() { Property1 = 18, Foos = new Foo[] { new Foo() { Property1 = 1 }, new Foo() { Property1 = 1 } } };
-
-            var mapper = CreateMapper(new ResolverMock(), builder =>
-            {
-                builder.CreateMap<Foo, Bar>()
-                    .MapProperty(x => x.Property1, x => x.Property3);
-
-                builder.CreateMap<FooC, BarC>()
-                    .MapProperty(x => x.Property1, x => x.Property1)
-                    .MapCollection(x => x.Foos, x => x.BarListNoSetterNotEmpty);
-            });
-
-            var barC = mapper.Map<BarC>(fooC);
-            Assert.AreEqual(fooC.Property1, barC.Property1);
-            Assert.AreEqual(fooC.Foos.Length, barC.BarListNoSetterNotEmpty.Count);
-            Assert.AreEqual(fooC.Foos[0].Property1, barC.BarListNoSetterNotEmpty[0].Property3);
-            Assert.AreEqual(fooC.Foos[1].Property1, barC.BarListNoSetterNotEmpty[1].Property3);
-        }
 
         [Test]
         public void ShouldMapWithResolver()
