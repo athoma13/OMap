@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Conversions.cs" />
     <Compile Include="IDependencyResolver.cs" />
     <Compile Include="ConfigurationBuilder.cs" />
     <Compile Include="MapAllHelper.cs" />

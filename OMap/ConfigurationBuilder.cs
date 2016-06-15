@@ -16,19 +16,19 @@ namespace OMap
 
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
             return this;
         }
 
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IEnumerable<TProperty2>>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapCollection));
             return this;
         }
 
@@ -54,23 +54,23 @@ namespace OMap
 
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapProperty<TProperty>(Expression<Func<TSource, TDependencies, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return this;
         }
 
         public BuilderNode<TSource, TTarget, TDependencies> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IEnumerable<TProperty2>>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapCollection));
             return this;
         }
         public BuilderNode<TSource, TTarget, TDependencies> MapFunction(Action<TSource, TTarget, TDependencies> action)
@@ -95,17 +95,17 @@ namespace OMap
         }
         public BuilderNode<TSource, TTarget> MapProperty<TProperty>(Expression<Func<TSource, TProperty>> from, Expression<Func<TTarget, TProperty>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapProperty));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapObject));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapCollection<TProperty1, TProperty2>(Expression<Func<TSource, IEnumerable<TProperty1>>> from, Expression<Func<TTarget, IEnumerable<TProperty2>>> to)
         {
-            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, MapType.MapCollection));
+            _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapCollection));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
         public BuilderNode<TSource, TTarget> MapFunction(Action<TSource, TTarget> action)
@@ -168,6 +168,7 @@ namespace OMap
         void AddEntry(BuilderConfigurationEntry entry);
         void SetNamedResolutions(IDictionary<Type, string> namedResolutions);
         BuilderConfigurationEntry[] GetEntries();
+        IList<IConversion> Conversions { get; }
     }
 
     public enum BuildeConfigurationEntryType
@@ -198,12 +199,14 @@ namespace OMap
     {
         public LambdaExpression SourceExpression { get; private set; }
         public LambdaExpression TargetExpression { get; private set; }
+        public IConverter Converter { get; private set; }
 
-        public BuilderConfigurationSourceTargetExpressionEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, MapType mapType)
+        public BuilderConfigurationSourceTargetExpressionEntry(LambdaExpression sourceExpression, LambdaExpression targetExpression, IConverter converter, MapType mapType)
             : base(mapType, sourceExpression.Parameters[0].Type, targetExpression.Parameters[0].Type, sourceExpression.Parameters.Count > 1)
         {
             SourceExpression = sourceExpression;
             TargetExpression = targetExpression;
+            Converter = converter;
         }
     }
 
@@ -225,11 +228,28 @@ namespace OMap
     {
         private readonly List<BuilderConfigurationEntry> _builderEntries = new List<BuilderConfigurationEntry>();
         private IDictionary<Type, string> _namedResolutions = new Dictionary<Type, string>();
+        private readonly List<IConversion> _conversions = new List<IConversion>();
 
         public BuilderNodeWithDependencies<TSource, TTarget> CreateMap<TSource, TTarget>()
         {
             return new BuilderNodeWithDependencies<TSource, TTarget>(this);
         }
+        public ConfigurationBuilder AddConversion(params IConversion[] conversions)
+        {
+            if (conversions == null) throw new ArgumentNullException("conversions");
+            _conversions.AddRange(conversions);
+            return this;
+        }
+        public ConfigurationBuilder AddConversion<TSourceValue, TTargetValue>(Func<TSourceValue, TTargetValue> converter)
+        {
+            if (converter == null) throw new ArgumentNullException("converter");
+            var conversion = new GenericConversion<TSourceValue, TTargetValue>(converter);
+            _conversions.Add(conversion);
+            return this;
+        }
+
+
+
         void IInternalBuilder.AddEntry(BuilderConfigurationEntry entry)
         {
             //Copy NamedResolutions to the entry
@@ -247,6 +267,14 @@ namespace OMap
             return _builderEntries.ToArray();
         }
 
+        IList<IConversion> IInternalBuilder.Conversions
+        {
+            get
+            {
+                return _conversions;
+            }
+        }
+
         public MappingConfiguration Build()
         {
             var configEntries = new List<MappingConfigurationEntry>();
@@ -260,7 +288,7 @@ namespace OMap
                 if (entry.MapType == MapType.MapProperty)
                 {
                     var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
-                    var action = CreateMappingAction(sourceTargetEntry.SourceExpression, sourceTargetEntry.TargetExpression);
+                    var action = CreateMappingAction(sourceTargetEntry.SourceExpression, sourceTargetEntry.TargetExpression, sourceTargetEntry.Converter);
                     var configEntry = new MappingConfigurationPropertyEntry(
                         sourceType,
                         targetType,
@@ -367,7 +395,7 @@ namespace OMap
         }
 
 
-        private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target)
+        private static Delegate CreateMappingAction(LambdaExpression source, LambdaExpression target, IConverter converter)
         {
             var hasDependency = source.Parameters.Count > 1;
 
@@ -376,6 +404,13 @@ namespace OMap
             var body = source.Body;
             body = Replace(body, source.Parameters[0], pSource);
             if (hasDependency) body = Replace(body, source.Parameters[1], pDependencies);
+
+            if (converter != null)
+            {
+                var converterConstant = Expression.Constant(converter);
+                var converterType = typeof(IConverter<,>).MakeGenericType(body.Type, target.Body.Type);
+                body = Expression.Call(converterConstant, converterType.GetMethod("Convert"), body);
+            }
 
             var pTarget = Expression.Parameter(target.Parameters[0].Type, "target");
             var targetProperty = target.Body;

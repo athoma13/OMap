@@ -30,7 +30,20 @@ namespace OMap
                 var sourceMemberName = pair.Item2;
                 var targetExpression = CreateLambdaExpression(target, targetMemberName);
                 var sourceExpression = CreateLambdaExpression(source, sourceMemberName);
-                if (targetExpression.ReturnType != sourceExpression.ReturnType)
+
+                var directMap = targetExpression.ReturnType == sourceExpression.ReturnType;
+                IConverter converter = null;
+                if (!directMap)
+                {
+                    //Check if there is a converter for that map...
+                    //Use last here so conversions are kind of overridable (i.e. Last applicable conversion wins).
+                    var conversion = builder.Conversions.LastOrDefault(x => x.CanConvert(sourceExpression.ReturnType, targetExpression.ReturnType));
+                    if (conversion != null) converter = conversion.Create(sourceExpression.ReturnType, targetExpression.ReturnType);
+                    //Set direct map to true if a converter is found (but will have to use a converter)
+                    directMap = converter != null;
+                }
+
+                if (!directMap)
                 {
                     var entries = builder.GetEntries();
                     Type sourceItemType;
@@ -44,7 +57,7 @@ namespace OMap
                     if (hasMapping)
                     {
                         var isCollection = isSourceEnumerable || isTargetEnumerable;
-                        builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, isCollection ? MapType.MapCollection : MapType.MapObject));
+                        builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, null, isCollection ? MapType.MapCollection : MapType.MapObject));
                     }
                     else
                     {
@@ -53,7 +66,7 @@ namespace OMap
                 }
                 else
                 {
-                    builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, MapType.MapProperty));
+                    builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, converter, MapType.MapProperty));
                 }
             }
         }
