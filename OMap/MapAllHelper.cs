@@ -13,7 +13,14 @@ namespace OMap
         public static void MapAll(IInternalBuilder builder, Type source, Type target, IEnumerable<LambdaExpression> exceptions)
         {
             var targetMembers = GetMemberNames(target);
-            var exclusions = GetMemberNames(exceptions);
+            var entries = builder.GetEntries();
+            //There may already be a mapping for properties on the target - defined by a parent mapping.
+            var alreadyMapped = entries.Where(x => x.TargetType.IsAssignableFrom(target)
+                                                    && x.SourceType.IsAssignableFrom(source))
+                                                .SelectMany(x => GetMemberNames(x.TargetType)).ToArray();
+
+
+            var exclusions = GetMemberNames(exceptions).Union(alreadyMapped).ToArray();
             var actualTargetMembers = targetMembers.Except(exclusions).ToArray();
             var equalityComparer = StringComparer.OrdinalIgnoreCase;
             var sourceMembers = new HashSet<string>(GetMemberNames(source), equalityComparer);
@@ -45,7 +52,6 @@ namespace OMap
 
                 if (!directMap)
                 {
-                    var entries = builder.GetEntries();
                     Type sourceItemType;
                     Type targetItemType;
                     var isSourceEnumerable = MappingHelper.TryGetCollectionType(sourceExpression.ReturnType, out sourceItemType);

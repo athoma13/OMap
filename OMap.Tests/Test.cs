@@ -57,6 +57,11 @@ namespace OMap.Tests
             public Foo[] Foos { get; set; }
             public Foo FooSingle { get; set; }
         }
+        public class FooAllX : FooAll
+        {
+            public decimal Property5 { get; set; }
+        }
+
         public class Bar
         {
             public int Property3 { get; set; }
@@ -97,6 +102,11 @@ namespace OMap.Tests
             public Bar[] Foos { get; set; }
             public Bar FooSingle { get; set; }
         }
+        public class BarAllX : BarAll
+        {
+            public decimal Property5 { get; set; }
+        }
+
         public class Dependency1
         {
             private static readonly Random _random = new Random();
@@ -582,6 +592,28 @@ namespace OMap.Tests
             Assert.AreEqual(true, barAll.Property3);
             Assert.AreEqual(now, barAll.Property4);
         }
+
+        [Test]
+        public void ShouldMapAllInherited()
+        {
+            var now = DateTime.Now;
+            var fooAllX = new FooAllX() { Property1 = 59, Property2 = "Hello", Property3 = true, Property4 = now, Property5 = 8};
+
+            var mapper = CreateMapper(new ResolverMock(), builder =>
+            {
+                //NOTE: Map All on parent has Exclusions... those should be respected when mapping child classes (i.e. no need to specify x => x.FooSingle when mapping FooAllX->BarAllX).
+                builder.CreateMap<FooAll, BarAll>().MapAll(x => x.FooSingle, x => x.Foos);
+                builder.CreateMap<FooAllX, BarAllX>().MapAll();
+            });
+
+            var barAllX = mapper.Map<BarAllX, BarAll>(fooAllX);
+            Assert.AreEqual(59, barAllX.Property1);
+            Assert.AreEqual("Hello", barAllX.Property2);
+            Assert.AreEqual(true, barAllX.Property3);
+            Assert.AreEqual(now, barAllX.Property4);
+            Assert.AreEqual(8, barAllX.Property5);
+        }
+
 
         [Test]
         public void ShouldMapAllExcept()
