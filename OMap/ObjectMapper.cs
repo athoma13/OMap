@@ -11,12 +11,12 @@ namespace OMap
         void Map(object source, object target);
     }
 
-    public class ObjectObjectMapper : IObjectMapper
+    public class ObjectMapper : IObjectMapper
     {
         private readonly IDependencyResolver _resolver;
         private readonly MappingConfigurationEntry[] _entries;
 
-        public ObjectObjectMapper(IMappingConfigurationProvider mappingConfigurationProvider, IDependencyResolver resolver)
+        public ObjectMapper(IMappingConfigurationProvider mappingConfigurationProvider, IDependencyResolver resolver)
         {
             _resolver = resolver;
             _entries = mappingConfigurationProvider.GetConfiguration().GetEntries().ToArray();

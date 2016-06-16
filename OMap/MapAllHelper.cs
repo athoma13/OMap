@@ -10,26 +10,24 @@ namespace OMap
 {
     internal static class MapAllHelper
     {
-        public static void MapAll(IInternalBuilder builder, Type source, Type target, IEnumerable<LambdaExpression> exceptions)
+        public static BuilderConfigurationEntry[] MapAll(IEnumerable<BuilderConfigurationEntry> entries, IEnumerable<IConversion> conversions, Type source, Type target, List<string> mappingErrors)
         {
+            var result = new List<BuilderConfigurationEntry>();
+
             var targetMembers = GetMemberNames(target);
-            var entries = builder.GetEntries();
-            //There may already be a mapping for properties on the target - defined by a parent mapping.
-            var alreadyMapped = entries.Where(x => x.TargetType.IsAssignableFrom(target)
+            //There may already be a mapping for properties on the target - e.g defined by a parent mapping or Ignored.
+            var alreadyMapped = entries.OfType<IHasTargetExpression>().Where(x => x.TargetType.IsAssignableFrom(target)
                                                     && x.SourceType.IsAssignableFrom(source))
-                                                .SelectMany(x => GetMemberNames(x.TargetType)).ToArray();
+                                                .Select(x => SingleMemberExpessionVisitor.GetMemberSingle(x.TargetExpression).Member.Name).ToArray();
 
-
-            var exclusions = GetMemberNames(exceptions).Union(alreadyMapped).ToArray();
-            var actualTargetMembers = targetMembers.Except(exclusions).ToArray();
+            var actualTargetMembers = targetMembers.Except(alreadyMapped).ToArray();
             var equalityComparer = StringComparer.OrdinalIgnoreCase;
             var sourceMembers = new HashSet<string>(GetMemberNames(source), equalityComparer);
 
-
-
             var pairs = actualTargetMembers.Select(x => Tuple.Create(x, sourceMembers.FirstOrDefault(s => equalityComparer.Equals(s, x)))).ToArray();
             var notMatched = pairs.Where(x => x.Item2 == null).Select(x => x.Item1).ToArray();
-            if (notMatched.Any()) throw new MappingException(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2} on destination type {1}", source.Name, target.Name, string.Join(", ", notMatched)));
+
+            if (notMatched.Any()) mappingErrors.Add(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2} on destination type {1}", source.Name, target.Name, string.Join(", ", notMatched)));
 
             foreach (var pair in pairs)
             {
@@ -44,7 +42,7 @@ namespace OMap
                 {
                     //Check if there is a converter for that map...
                     //Use last here so conversions are kind of overridable (i.e. Last applicable conversion wins).
-                    var conversion = builder.Conversions.LastOrDefault(x => x.CanConvert(sourceExpression.ReturnType, targetExpression.ReturnType));
+                    var conversion = conversions.LastOrDefault(x => x.CanConvert(sourceExpression.ReturnType, targetExpression.ReturnType));
                     if (conversion != null) converter = conversion.Create(sourceExpression.ReturnType, targetExpression.ReturnType);
                     //Set direct map to true if a converter is found (but will have to use a converter)
                     directMap = converter != null;
@@ -63,18 +61,20 @@ namespace OMap
                     if (hasMapping)
                     {
                         var isCollection = isSourceEnumerable || isTargetEnumerable;
-                        builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, null, isCollection ? MapType.MapCollection : MapType.MapObject));
+                        result.Add(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, null, isCollection ? MapType.MapCollection : MapType.MapObject));
                     }
                     else
                     {
-                        throw new MappingException(string.Format("Could not create map for {0}.{1}->{2}.{3}. No Mapping found for {4}->{5}.", source.Name, sourceMemberName, target.Name, targetMemberName, sourceExpression.ReturnType.Name, targetExpression.ReturnType.Name));
+                        mappingErrors.Add(string.Format("Could not create map for {0}.{1}->{2}.{3}. No Mapping found for {4}->{5}.", source.Name, sourceMemberName, target.Name, targetMemberName, sourceExpression.ReturnType.Name, targetExpression.ReturnType.Name));
                     }
                 }
                 else
                 {
-                    builder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, converter, MapType.MapProperty));
+                    result.Add(new BuilderConfigurationSourceTargetExpressionEntry(sourceExpression, targetExpression, converter, MapType.MapProperty));
                 }
             }
+
+            return result.ToArray();
         }
 
         private static LambdaExpression CreateLambdaExpression(Type type, string memberName)

@@ -20,6 +20,12 @@ namespace OMap
             return this;
         }
 
+        public BuilderNode<TSource, TTarget> Ignore<TProperty>(Expression<Func<TTarget, TProperty>> to)
+        {
+            _internalBuilder.AddEntry(new BuilderConfigurationIgnoreEntry(typeof(TSource), to));
+            return this;
+        }
+
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
@@ -62,7 +68,11 @@ namespace OMap
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return this;
         }
-
+        public BuilderNode<TSource, TTarget, TDependencies> Ignore<TProperty>(Expression<Func<TTarget, TProperty>> to)
+        {
+            _internalBuilder.AddEntry(new BuilderConfigurationIgnoreEntry(typeof(TSource), to));
+            return this;
+        }
         public BuilderNode<TSource, TTarget, TDependencies> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
@@ -98,6 +108,11 @@ namespace OMap
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapProperty));
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
+        public BuilderNode<TSource, TTarget> Ignore<TProperty>(Expression<Func<TTarget, TProperty>> to)
+        {
+            _internalBuilder.AddEntry(new BuilderConfigurationIgnoreEntry(typeof(TSource), to));
+            return new BuilderNode<TSource, TTarget>(_internalBuilder);
+        }
         public BuilderNode<TSource, TTarget> MapObject<TProperty1, TProperty2>(Expression<Func<TSource, TProperty1>> from, Expression<Func<TTarget, TProperty2>> to)
         {
             _internalBuilder.AddEntry(new BuilderConfigurationSourceTargetExpressionEntry(from, to, null, MapType.MapObject));
@@ -114,9 +129,9 @@ namespace OMap
             return new BuilderNode<TSource, TTarget>(_internalBuilder);
         }
 
-        public BuilderNodeWithDependencies<TSource, TTarget> MapAll(params Expression<Func<TTarget, object>>[] exceptions)
+        public BuilderNodeWithDependencies<TSource, TTarget> MapAll()
         {
-            MapAllHelper.MapAll(_internalBuilder, typeof(TSource), typeof(TTarget), exceptions);
+            _internalBuilder.AddEntry(new BuilderConfigurationMapAllEntry(typeof(TSource), typeof(TTarget)));
             return this;
         }
 
@@ -195,7 +210,14 @@ namespace OMap
         }
     }
 
-    internal class BuilderConfigurationSourceTargetExpressionEntry : BuilderConfigurationEntry
+    internal interface IHasTargetExpression
+    {
+        LambdaExpression TargetExpression { get; }
+        Type TargetType { get; }
+        Type SourceType { get; }
+    }
+
+    internal class BuilderConfigurationSourceTargetExpressionEntry : BuilderConfigurationEntry, IHasTargetExpression
     {
         public LambdaExpression SourceExpression { get; private set; }
         public LambdaExpression TargetExpression { get; private set; }
@@ -222,6 +244,26 @@ namespace OMap
             DependencyTupleType = dependencyTupleType;
         }
     }
+
+    internal class BuilderConfigurationMapAllEntry : BuilderConfigurationEntry
+    {
+        public BuilderConfigurationMapAllEntry(Type sourceType, Type targetType)
+            :base(MapType.MapAll, sourceType, targetType, false)
+        {
+        }
+    }
+
+    internal class BuilderConfigurationIgnoreEntry : BuilderConfigurationEntry, IHasTargetExpression
+    {
+        public LambdaExpression TargetExpression { get; private set; }
+
+        public BuilderConfigurationIgnoreEntry(Type sourceType, LambdaExpression targetExpression)
+            : base(MapType.MapIgnore, sourceType, targetExpression.Parameters[0].Type, false)
+        {
+            TargetExpression = targetExpression;
+        }
+    }
+
 
 
     public class ConfigurationBuilder : IInternalBuilder
@@ -278,7 +320,21 @@ namespace OMap
         public MappingConfiguration Build()
         {
             var configEntries = new List<MappingConfigurationEntry>();
-            foreach (var entry in _builderEntries)
+
+            //Create a copy of builder entries, and add all MapAll's to it... (remove all MapAlls from the copy)
+            var mapAllResults = new List<BuilderConfigurationEntry>();
+            var mapAllErrors = new List<string>();
+            foreach(var entry in _builderEntries.Where(x => x.MapType == MapType.MapAll))
+            {
+                mapAllResults.AddRange(MapAllHelper.MapAll(_builderEntries, _conversions, entry.SourceType, entry.TargetType, mapAllErrors));
+            }
+            if (mapAllErrors.Any()) throw new MappingException(string.Format("The following error(s) occurred while building the mapper:\r\n{0}", string.Join("\r\n", mapAllErrors)));
+
+            //Add the extra entries from MappingAll to a temporary list.
+            var builderEntries = _builderEntries.ToList();
+            builderEntries.AddRange(mapAllResults);
+
+            foreach (var entry in builderEntries)
             {
                 var sourceType = entry.SourceType;
                 var targetType = entry.TargetType;
@@ -348,8 +404,6 @@ namespace OMap
 
                     configEntries.Add(configEntry);
                 }
-
-
             }
             return new MappingConfiguration(configEntries);
         }
@@ -359,21 +413,31 @@ namespace OMap
             var sourceTypeName = sourceType.Name;
             var targetTypeName = targetType.Name;
 
+            if (entry.MapType == MapType.MapAll) return string.Format("MapAll: {0}->{1}", sourceTypeName, targetTypeName);
             if (entry.MapType == MapType.MapFunction) return string.Format("MappingFunction({0}, {1})", sourceTypeName, targetTypeName);
+            if (entry.MapType == MapType.MapIgnore)
+            {
+                var sourceTargetEntry = (BuilderConfigurationIgnoreEntry)entry;
+                var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
+                var result = string.Format("Ignored: -> {0}.{1}", targetTypeName, targetMember == null ? "?" : targetMember.Member.Name);
+                return result;
+            }
+            else
+            {
+                //Entry MUST be BuilderConfigurationSourceTargetExpressionEntry for any other MapTypes...
+                var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
+                var sourceMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.SourceExpression);
+                var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
 
-            //Entry MUST be BuilderConfigurationSourceTargetExpressionEntry for any other MapTypes...
-            var sourceTargetEntry = (BuilderConfigurationSourceTargetExpressionEntry)entry;
-            var sourceMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.SourceExpression);
-            var targetMember = MemberExpessionVisitor.GetMember(sourceTargetEntry.TargetExpression);
+                var result = string.Format("{0}.{1} -> {2}.{3}",
+                    sourceTypeName,
+                    sourceMember == null ? "?" : sourceMember.Member.Name,
+                    targetTypeName,
+                    targetMember == null ? "?" : targetMember.Member.Name
+                    );
 
-            var result = string.Format("{0}.{1} -> {2}.{3}",
-                sourceTypeName,
-                sourceMember == null ? "?" : sourceMember.Member.Name,
-                targetTypeName,
-                targetMember == null ? "?" : targetMember.Member.Name
-                );
-
-            return result;
+                return result;
+            }
         }
 
         private static Delegate CreateObjectSetterMappingAction(LambdaExpression target)

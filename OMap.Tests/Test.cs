@@ -9,24 +9,6 @@ using NUnit.Framework;
 
 namespace OMap.Tests
 {
-    public class ResolverMock : IDependencyResolver
-    {
-        private readonly Dictionary<Tuple<Type, string>, Delegate> _dependencies = new Dictionary<Tuple<Type, string>, Delegate>();
-
-        public void Add<T>(Func<T> dependency, string name = null)
-        {
-            _dependencies[Tuple.Create(typeof(T), name)] = dependency;
-        }
-
-        public object Resolve(Type type, string name = null)
-        {
-            Delegate tmp;
-            if (!_dependencies.TryGetValue(Tuple.Create(type, name), out tmp)) throw new InvalidOperationException("Dependency not registered");
-            return tmp.DynamicInvoke();
-        }
-    }
-
-
     [TestFixture]
     public class ObjectMapperTests
     {
@@ -583,7 +565,9 @@ namespace OMap.Tests
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 builder.CreateMap<FooAll, BarAll>()
-                    .MapAll(x => x.FooSingle, x => x.Foos);
+                    .MapAll()
+                    .Ignore(x => x.FooSingle)
+                    .Ignore(x => x.Foos);
             });
 
             var barAll = mapper.Map<BarAll>(fooAll);
@@ -602,7 +586,7 @@ namespace OMap.Tests
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 //NOTE: Map All on parent has Exclusions... those should be respected when mapping child classes (i.e. no need to specify x => x.FooSingle when mapping FooAllX->BarAllX).
-                builder.CreateMap<FooAll, BarAll>().MapAll(x => x.FooSingle, x => x.Foos);
+                builder.CreateMap<FooAll, BarAll>().MapAll().Ignore(x => x.FooSingle).Ignore(x => x.Foos);
                 builder.CreateMap<FooAllX, BarAllX>().MapAll();
             });
 
@@ -623,7 +607,8 @@ namespace OMap.Tests
             var mapper = CreateMapper(new ResolverMock(), builder =>
             {
                 builder.CreateMap<FooAll, BarAll>()
-                    .MapAll(x => x.FooSingle, x => x.Foos, x => x.Property1, x => x.Property2);
+                    .MapAll()
+                    .Ignore(x => x.FooSingle).Ignore(x => x.Foos).Ignore(x => x.Property1).Ignore(x => x.Property2);
             });
 
             var barAll = mapper.Map<BarAll>(fooAll);
@@ -681,7 +666,7 @@ namespace OMap.Tests
         private static IObjectMapper CreateMapper(IDependencyResolver resolver, Action<ConfigurationBuilder> builder)
         {
             var mappingProvider = new MappingConfigurationProvider(builder);
-            var mapper = new ObjectObjectMapper(mappingProvider, resolver);
+            var mapper = new ObjectMapper(mappingProvider, resolver);
             return mapper;
         }
     }

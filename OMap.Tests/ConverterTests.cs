@@ -92,7 +92,7 @@ namespace OMap.Tests
         private static IObjectMapper CreateMapper(IDependencyResolver resolver, Action<ConfigurationBuilder> builder)
         {
             var mappingProvider = new MappingConfigurationProvider(builder);
-            var mapper = new ObjectObjectMapper(mappingProvider, resolver);
+            var mapper = new ObjectMapper(mappingProvider, resolver);
             return mapper;
         }
         private IObjectMapper CreateMapAllMapper<TSource, TTarget>(Action<ConfigurationBuilder> builder)

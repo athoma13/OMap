@@ -8,7 +8,9 @@ namespace OMap
         MapProperty,
         MapObject,
         MapCollection,
-        MapFunction
+        MapFunction,
+        MapAll,
+        MapIgnore
     }
 
     public class MappingConfigurationEntry
