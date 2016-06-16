@@ -37,6 +37,12 @@ namespace OMap.Tests
 
         }
 
+        public class FooDtoMissing
+        {
+            public string Property1 { get; set; }
+            public string Property3 { get; set; }
+        }
+
         [Test]
         public void MapAllShouldIgnoreWhenExplictlyMarkedAsIgnore()
         {
@@ -87,6 +93,22 @@ namespace OMap.Tests
             Assert.IsFalse(fooDto.IsBroken(), "Is broken flag should be false");
 
         }
+
+        [Test]
+        [ExpectedException(typeof(MappingException))]
+        public void MapAllShouldThrowWhenMissingMembers()
+        {
+            var mapper = TestHelper.CreateMapper(b =>
+            {
+                b.CreateMap<Foo, FooDtoMissing>()
+                    .MapAll();
+            });
+
+            var foo = new Foo() { Property1 = "Hello", Property2 = "break" };
+            var fooDto = mapper.Map<FooDto>(foo);
+
+        }
+
 
     }
 }

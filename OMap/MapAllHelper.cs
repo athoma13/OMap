@@ -29,7 +29,7 @@ namespace OMap
 
             if (notMatched.Any()) mappingErrors.Add(string.Format("Error Creating map for {0}->{1}: Could not find mapping equivalent for {2} on destination type {1}", source.Name, target.Name, string.Join(", ", notMatched)));
 
-            foreach (var pair in pairs)
+            foreach (var pair in pairs.Where(p => p.Item2 != null))
             {
                 var targetMemberName = pair.Item1;
                 var sourceMemberName = pair.Item2;
